@@ -1,0 +1,8 @@
+start: statement
+
+statement: ("cheese")+
+
+COMMENT: /(#|//)[^\n]+/
+NEWLINE: /[\n]+/
+%ignore NEWLINE
+%ignore COMMENT
