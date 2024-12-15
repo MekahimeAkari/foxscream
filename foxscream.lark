@@ -1,8 +1,76 @@
-start: statement
+start: statements
 
-statement: ("cheese")+
+statements: statement+
+?statement: _WS? expression _WS_INLINE? _END_STMT _WS?
+?expression: assign | arith | block | ifstmt | whilestmt
+?stmt_or_block: expression | block
+?block: OPEN_BRACE _WS? statements _WS? CLOSE_BRACE
+?ifstmt: IF _WS? expression _WS? stmt_or_block _WS? elifstmt?
+?elifstmt: ELIF _WS? expression _WS? stmt_or_block _WS? elifstmt? | elsestmt
+?elsestmt: ELSE _WS? stmt_or_block
+?whilestmt: WHILE _WS? expression _WS? stmt_or_block
+?assign: primary _WS? ASSIGNOP _WS? expression
+?arith: logicor
+?logicor: logicand (_WS? OROP _WS? logicand)+ | logicand
+?logicand: logicnot (_WS? ANDOP _WS? logicnot)+ | logicnot
+?logicnot: NOTOP _WS? logicnot | relation
+?relation: bitor (_WS? RELOP _WS? bitor)+ | bitor
+?bitor: bitor _WS? BITOROP _WS? bitxor | bitxor
+?bitxor: bitxor _WS? BITXOROP _WS? bitand | bitand
+?bitand: bitand _WS? BITANDOP _WS? shift | shift
+?shift: shift _WS? SHIFTOP _WS? sum | sum
+?sum: sum _WS? SUMOP _WS? product | product
+?product: product _WS? PRODUCTOP _WS? unop | unop
+?unop: UNOP _WS? unop | exponent
+?exponent: parens _WS? EXPOP _WS? unop | parens
+?parens: OPEN_PAREN _WS? expression _WS? CLOSE_PAREN | primary
+primary: primary accessor | atom
+?accessor: dotaccess | call | arrayaccess
+dotaccess: DOT NAME
+arrayaccess: OPEN_SQUARE _WS? slices _WS? CLOSE_SQUARE
+call: OPEN_PAREN _WS? arguments? _WS? CLOSE_PAREN
+slices: expression // TODO
+arguments: expression _WS? morearguments?
+morearguments: COMMA _WS? expression _WS? morearguments?
+atom: NAME | literal
+literal: number
+number: INT | FLOAT | HEX | BIN | OCT
 
-COMMENT: /(#|//)[^\n]+/
-NEWLINE: /[\n]+/
-%ignore NEWLINE
-%ignore COMMENT
+NAME.0: ("a".."z"|"A".."Z"|"_")("a".."z"|"0".."9"|"A".."Z"|"_")*
+INT: "0"|"-"?("1".."9")("0".."9")*
+FLOAT: "-"?("0".."9")+"."("0".."9")+
+HEX: "0x" ("a".."f"|"A".."F"|"0".."9")+
+BIN: "0b" ("0".."1")+
+OCT: "0o" ("0".."7")+
+ASSIGNOP: "="
+SUMOP: "+" | "-"
+UNOP: "+" | "-" | "~"
+EXPOP: "**"
+PRODUCTOP: "*" | "/" | "//" | "%"
+SHIFTOP: "<<" | ">>"
+BITANDOP: "&"
+BITXOROP: "^"
+BITOROP: "|"
+RELOP: "==" | "!=" | ">" | "<" | ">=" | "<="
+NOTOP: "!" | "not"
+ANDOP: "&&" | "and"
+OROP: "||" | "or"
+OPEN_PAREN: "("
+CLOSE_PAREN: ")"
+OPEN_BRACE: "{"
+CLOSE_BRACE: "}"
+IF.1: "if"
+ELIF.1: "elif"
+ELSE.1: "else"
+WHILE.1: "while"
+FOR.1: "for"
+DOT: "."
+COMMA: ","
+OPEN_SQUARE: "["
+CLOSE_SQUARE: "]"
+_END_STMT: (";" | "\n")
+
+_WS_INLINE: (" "|"\t")+
+_WS: (" "|"\t"|"\r"|"\n")+
+HASH_COMMENT: /#[^\n]*/
+%ignore HASH_COMMENT
