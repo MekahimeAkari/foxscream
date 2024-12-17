@@ -84,4 +84,5 @@ recur(4)
 print(what(5))
 w = what(3)
 print(w)
+wwz = if 2 > 1 { 2; } else { 1; }
 #yoooo
