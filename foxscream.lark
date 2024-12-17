@@ -2,13 +2,17 @@ start: statements
 
 statements: statement+
 ?statement: _WS? expression _WS_INLINE? _END_STMT _WS?
-?expression: assign | arith | block | ifstmt | whilestmt
+?expression: assign | arith | block | ifstmt | whilestmt | funcdef | returnstmt
 ?stmt_or_block: expression | block
 ?block: OPEN_BRACE _WS? statements _WS? CLOSE_BRACE
 ?ifstmt: IF _WS? expression _WS? stmt_or_block _WS? elifstmt?
 ?elifstmt: ELIF _WS? expression _WS? stmt_or_block _WS? elifstmt? | elsestmt
 ?elsestmt: ELSE _WS? stmt_or_block
 ?whilestmt: WHILE _WS? expression _WS? stmt_or_block
+?funcdef: FN _WS? NAME _WS? OPEN_PAREN _WS? arglist? _WS? CLOSE_PAREN _WS? block
+?arglist: NAME _WS? moreargs?
+?moreargs: COMMA _WS? NAME _WS? moreargs?
+?returnstmt: RETURN _WS? expression?
 ?assign: primary _WS? ASSIGNOP _WS? expression
 ?arith: logicor
 ?logicor: logicand (_WS? OROP _WS? logicand)+ | logicand
@@ -64,6 +68,8 @@ ELIF.1: "elif"
 ELSE.1: "else"
 WHILE.1: "while"
 FOR.1: "for"
+FN.1: "fn"
+RETURN.1: "return"
 DOT: "."
 COMMA: ","
 OPEN_SQUARE: "["
@@ -72,5 +78,5 @@ _END_STMT: (";" | "\n")
 
 _WS_INLINE: (" "|"\t")+
 _WS: (" "|"\t"|"\r"|"\n")+
-HASH_COMMENT: /#[^\n]*/
+HASH_COMMENT.0: /#[^\n]*[\n]?/
 %ignore HASH_COMMENT

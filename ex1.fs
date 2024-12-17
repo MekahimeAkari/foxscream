@@ -55,4 +55,33 @@ while n > 0
 while n < 5
     n = n + 1
 print(a)
+fn cheese() { cheese=1; }
+fn print2(a1)
+{
+    print(a1)
+}
+cheese()
+fn recur(a)
+{
+    print(a)
+    if a > 0
+        recur(a-1)
+}
+ww2 = 0
+fn what(tt)
+{
+    if tt > 4
+        return 4
+    else
+    {
+        ww = 7
+        return 3
+        ww2 = -1
+    }
+}
+print2(3.5)
+recur(4)
+print(what(5))
+w = what(3)
+print(w)
 #yoooo

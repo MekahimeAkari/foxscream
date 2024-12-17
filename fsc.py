@@ -36,6 +36,11 @@ class ArgList:
     def __repr__(self):
         return "({})".format(", ".join([str(x) for x in self.args]))
 
+class Function:
+    def __init__(self, args, body):
+        self.args = args
+        self.body = body
+
 class Scope:
     def __init__(self):
         self.variables = [{"true": True, "false": False, "null": None, "print": print}]
@@ -51,6 +56,10 @@ class Scope:
         self.variables[self.scope][name] = value
         return self.variables[self.scope][name]
 
+    def set_variable(self, name, value):
+        self.variables[self.scope][name] = value
+        return self.variables[self.scope][name]
+
     def get_value(self, name):
         scope = self.scope
         while scope >= 0:
@@ -59,8 +68,8 @@ class Scope:
             scope -= 1
         raise Exception("No variable {}".format(name))
 
-    def push_scope(self):
-        self.variables.append({})
+    def push_scope(self, new_scope={}):
+        self.variables.append(new_scope)
         self.scope += 1
 
     def pop_scope(self):
@@ -82,6 +91,19 @@ class FoxScreamInterp(Interpreter):
         super().__init__(*args, **kwargs)
         self.scope = Scope()
         self.reserved = ["true", "false", "null"]
+
+    def call_function(self, name, *args):
+        func_obj = self.get_value(name)
+        if isinstance(func_obj, Function):
+            argument_list = {}
+            for i in range(0, len(args)):
+                argument_list[func_obj.args[i]] = args[i]
+            self.scope.push_scope(argument_list)
+            res = self.visit(func_obj.body)
+            self.scope.pop_scope()
+            return res
+        else:
+            return func_obj(*args)
 
     def visit_or_value(self, tree):
         if isinstance(tree, Tree):
@@ -154,10 +176,10 @@ class FoxScreamInterp(Interpreter):
         if len(tree.children) == 1:
             return self.visit(tree.children[0])
         else:
-            accessed_ele = self.get_value(self.visit(tree.children[0]))
+            accessed_ele = self.visit(tree.children[0])
             if tree.children[1].data == "call":
                 call_args = self.visit(tree.children[1])
-                return accessed_ele(*[self.get_value(x) for x in call_args.args])
+                return self.call_function(accessed_ele, *[self.get_value(x) for x in call_args.args])
             raise Exception("wat")
 
     def logicnot(self, tree):
@@ -381,12 +403,47 @@ class FoxScreamInterp(Interpreter):
         self.scope.pop_scope()
         return res
 
+    def funcdef(self, tree):
+        name = self.visit_or_value(tree.children[1])
+        args = ArgList()
+        body = None
+        if len(tree.children) > 5:
+            args.add(self.visit_or_value(tree.children[3]))
+            body = tree.children[5]
+        else:
+            body = tree.children[4]
+        return self.scope.set_variable(name, Function(args.args, body))
+
+    def moreargs(self, tree):
+        ret_args = ArgList()
+        ret_args.add(self.visit_or_value(tree.children[1]))
+        if len(tree.children) > 2:
+            ret_args.add(self.visit_or_value(tree.children[2]))
+        return ret_args
+
+    def arglist(self, tree):
+        ret_args = ArgList()
+        ret_args.add(self.visit(tree.children[0]))
+        if len(tree.children) > 1:
+            ret_args.add(self.visit(tree.children[1]))
+        return ret_args
+
+    def returnstmt(self, tree):
+        if len(tree.children) == 1:
+            return
+        return self.visit_or_value(tree.children[1])
+
     def start(self, tree):
         self.visit_children(tree)
         print(self.scope)
 
     def statements(self, tree):
-        self.visit_children(tree)
+        ret = None
+        for child in tree.children:
+            ret = self.visit(child)
+            if child.data == "returnstmt":
+                return ret
+        return ret
 
     def __default__(self, tree):
         raise Exception("No {}, tree: {}".format(tree.data, tree))
