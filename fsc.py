@@ -2,6 +2,7 @@
 
 import os
 import sys
+import codecs
 from lark import Lark, Token, Tree
 from lark.visitors import Interpreter
 
@@ -140,6 +141,25 @@ class FoxScreamInterp(Interpreter):
             return Value(int(num_val, 2))
         elif num_type == "OCT":
             return Value(int(num_val, 8))
+
+    def string(self, tree):
+        is_r = False
+        is_f = False
+        string_val = tree.children[0].value
+        while string_val[0] != "'" and string_val[0] != '"':
+            if string_val[0].lower() == "r":
+                is_r = True
+            elif string_val[0].lower() == "f":
+                is_f = True
+            string_val = string_val[1:]
+        if tree.children[0].type == "STRING":
+            string_val = string_val[1:-1]
+        if tree.children[0].type == "ML_STRING":
+            string_val = string_val[3:-3]
+        if not is_r:
+            string_val = codecs.escape_decode(bytes(string_val, "utf-8"))[0].decode("utf-8")
+
+        return string_val
 
     def literal(self, tree):
         return self.visit(tree.children[0])

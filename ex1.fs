@@ -85,4 +85,14 @@ print(what(5))
 w = what(3)
 print(w)
 wwz = if 2 > 1 { 2; } else { 1; }
+str = "'a'"
+str2 = '"b"'
+str3 = '''
+    "cheese\n"
+'''
+str4 = r'''
+    "cheese\n"
+'''
+
+print(str, str2, str3, str4)
 #yoooo
