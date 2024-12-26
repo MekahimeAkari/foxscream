@@ -95,4 +95,14 @@ str4 = r'''
 '''
 
 print(str, str2, str3, str4)
+arr1 = []
+arr2 = [1, 2]
+arr3 = ["k": 1, "j": 2]
+print(arr2[1], arr3["j"])
+class classcheese {}
+class classcheese2 { classa = 1; }
+class classcheese3 { classa = 1; classb = 32
+    fn smell() { print("smelly"); }
+    }
+classcheese3.smell(); #fix this
 #yoooo

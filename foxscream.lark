@@ -1,8 +1,8 @@
 start: statements
 
-statements: statement+
+statements: statement*
 ?statement: _WS? expression _WS_INLINE? _END_STMT _WS?
-?expression: assign | arith | block | ifstmt | whilestmt | funcdef | returnstmt
+?expression: assign | arith | block | ifstmt | whilestmt | funcdef | returnstmt | arraydec | classdec
 ?stmt_or_block: expression | block
 ?block: OPEN_BRACE _WS? statements _WS? CLOSE_BRACE
 ?ifstmt: IF _WS? expression _WS? stmt_or_block _WS? elifstmt?
@@ -13,6 +13,16 @@ statements: statement+
 ?arglist: NAME _WS? moreargs?
 ?moreargs: COMMA _WS? NAME _WS? moreargs?
 ?returnstmt: RETURN _WS? expression?
+?arraydec: OPEN_SQUARE _WS? arraydeclist? _WS? CLOSE_SQUARE
+?arraykeydec: expression _WS? COLON
+arraydecele: arraykeydec? _WS? expression
+?arraydeclist: arraydecele _WS? morearraydec?
+?morearraydec: COMMA _WS? arraydecele _WS? morearraydec?
+?classdec: CLASS _WS? NAME _WS? oflist? _WS? haslist? _WS? block
+oflist: OF _WS? NAME _WS? moreof?
+?moreof: COMMA _WS? NAME _WS? moreof?
+haslist: HAS _WS? NAME _WS? morehas?
+?morehas: COMMA _WS? NAME _WS? morehas ?
 ?assign: primary _WS? ASSIGNOP _WS? expression
 ?arith: logicor
 ?logicor: logicand (_WS? OROP _WS? logicand)+ | logicand
@@ -73,11 +83,15 @@ WHILE.1: "while"
 FOR.1: "for"
 FN.1: "fn"
 RETURN.1: "return"
+CLASS.1: "class"
+OF.1: "of"
+HAS.1: "has"
 DOT: "."
 COMMA: ","
+COLON: ":"
 OPEN_SQUARE: "["
 CLOSE_SQUARE: "]"
-_END_STMT: (";" | "\n")
+_END_STMT.1: (";" | "\n")
 
 _WS_INLINE: (" "|"\t")+
 _WS: (" "|"\t"|"\r"|"\n")+

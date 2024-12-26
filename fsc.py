@@ -6,6 +6,23 @@ import codecs
 from lark import Lark, Token, Tree
 from lark.visitors import Interpreter
 
+class Class:
+    def __init__(self, name):
+        self.name = name
+        self.slots = {}
+
+    def add_slot(self, name, val=None):
+        self.slots[name] = val
+
+    def access(self, name):
+        return self.slots[name]
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return "class {}: {}".format(self.name, self.slots)
+
 class Value:
     def __init__(self, val):
         self.value = val
@@ -46,11 +63,17 @@ class Scope:
     def __init__(self):
         self.variables = [{"true": True, "false": False, "null": None, "print": print}]
         self.scope = 0
+        self.capture_next_scope = False
+        self.capture_scope = None
+        self.captured_scope = None
+
+    def print_cur_scope(self, prefix=""):
+        print(prefix, "scope", self.scope, self.variables[self.scope], '\n')
 
     def assign(self, name, value):
         scope = self.scope
         while scope >= 0:
-            if name in self.variables[scope]:
+            if name in self.variables[scope].keys():
                 self.variables[scope][name] = value
                 return self.variables[scope][name]
             scope -= 1
@@ -69,11 +92,18 @@ class Scope:
             scope -= 1
         raise Exception("No variable {}".format(name))
 
-    def push_scope(self, new_scope={}):
-        self.variables.append(new_scope)
+    def push_scope(self, new_scope={}, throw=False):
+        if self.capture_next_scope is True:
+            self.capture_scope = self.scope + 1
+            self.capture_next_scope = False
+            self.captured_scope = None
+        self.variables.append(dict(new_scope))
         self.scope += 1
 
     def pop_scope(self):
+        if self.capture_scope == self.scope:
+            self.captured_scope = dict(self.variables[-1])
+            self.capture_scope = None
         self.variables.pop()
         self.scope -= 1
 
@@ -192,6 +222,15 @@ class FoxScreamInterp(Interpreter):
             ret_args.add(self.visit(tree.children[1]))
         return ret_args
 
+    def slices(self, tree): #TODO: Actually implement slicing
+        return self.visit(tree.children[0])
+
+    def arrayaccess(self, tree):
+        return self.visit(tree.children[1])
+
+    def dotaccess(self, tree):
+        return self.visit_or_value(tree.children[1])
+
     def primary(self, tree):
         if len(tree.children) == 1:
             return self.visit(tree.children[0])
@@ -200,6 +239,12 @@ class FoxScreamInterp(Interpreter):
             if tree.children[1].data == "call":
                 call_args = self.visit(tree.children[1])
                 return self.call_function(accessed_ele, *[self.get_value(x) for x in call_args.args])
+            elif tree.children[1].data == "arrayaccess":
+                accessor = self.visit(tree.children[1])
+                return self.get_value(accessed_ele)[self.get_value(accessor)]
+            elif tree.children[1].data == "dotaccess":
+                accessor = self.visit_or_value(tree.children[1])
+                return self.get_value(accessed_ele).access(self.get_value(accessor))
             raise Exception("wat")
 
     def logicnot(self, tree):
@@ -452,6 +497,68 @@ class FoxScreamInterp(Interpreter):
         if len(tree.children) == 1:
             return
         return self.visit_or_value(tree.children[1])
+
+    def arraykeydec(self, tree):
+        return self.visit_or_value(tree.children[0])
+
+    def arraydecele(self, tree):
+        key = None
+        if len(tree.children) > 1:
+            key = self.visit_or_value(tree.children[0])
+        val = self.visit_or_value(tree.children[-1])
+        return (key, val)
+
+    def morearraydec(self, tree):
+        ret_decs = [self.visit(tree.children[1])]
+        if len(tree.children) > 2:
+            ret_decs.extend(self.visit(tree.children[2]))
+        return ret_decs
+
+    def arraydeclist(self, tree):
+        ret_decs = [self.visit(tree.children[0])]
+        if len(tree.children) > 1:
+            ret_decs.extend(self.visit(tree.children[1]))
+        return ret_decs
+
+    def arraydec(self, tree):
+        new_arr = {}
+        if len(tree.children) > 2:
+            cur_index = 0
+            for key, value in self.visit(tree.children[1]):
+                if key is None:
+                    key = cur_index
+                    cur_index += 1
+                new_arr[key] = value
+        return new_arr
+
+    def get_type(self, item):
+        if isinstance(item, Tree):
+            return item.data
+        elif isinstance(item, Token):
+            return item.type
+        else:
+            return str(type(item))
+
+    def classdec(self, tree):
+        new_class_name = self.visit_or_value(tree.children[1])
+        new_class = Class(new_class_name)
+        next_index = 2
+        of_list = None
+        has_list = None
+        class_body = []
+        if self.get_type(tree.children[next_index]) == "oflist":
+            of_list = self.visit(tree.children[next_index])
+            next_index += 1
+        if self.get_type(tree.children[next_index]) == "haslist":
+            has_list = self.visit(tree.children[next_index])
+            next_index += 1
+        if self.get_type(tree.children[next_index]) == "block":
+            self.scope.capture_next_scope = True
+            self.visit(tree.children[next_index])
+            class_defs = self.scope.captured_scope
+            for member_name, member_val in class_defs.items():
+                new_class.add_slot(member_name, member_val)
+        return self.scope.set_variable(new_class_name, new_class)
 
     def start(self, tree):
         self.visit_children(tree)
