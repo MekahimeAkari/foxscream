@@ -1,28 +1,30 @@
 start: statements
 
 statements: statement*
-?statement: _WS? expression _WS_INLINE? _END_STMT _WS?
-?expression: assign | arith | block | ifstmt | whilestmt | funcdef | returnstmt | arraydec | classdec
+?statement: _WS? qualifier* _WS? expression _WS_INLINE? _END_STMT _WS?
+?expression: assign | arith | block | ifstmt | whilestmt | funcdef | returnstmt | arraydec | classdec | namespace
 ?stmt_or_block: expression | block
 ?block: OPEN_BRACE _WS? statements _WS? CLOSE_BRACE
 ?ifstmt: IF _WS? expression _WS? stmt_or_block _WS? elifstmt?
 ?elifstmt: ELIF _WS? expression _WS? stmt_or_block _WS? elifstmt? | elsestmt
 ?elsestmt: ELSE _WS? stmt_or_block
 ?whilestmt: WHILE _WS? expression _WS? stmt_or_block
-?funcdef: FN _WS? NAME _WS? OPEN_PAREN _WS? arglist? _WS? CLOSE_PAREN _WS? block
-?arglist: NAME _WS? moreargs?
+?funcdef: FN _WS? NAME? _WS? OPEN_PAREN _WS? arglist? _WS? CLOSE_PAREN _WS? typeexpr? block
+?arglist: primary _WS? moreargs?
 ?moreargs: COMMA _WS? NAME _WS? moreargs?
 ?returnstmt: RETURN _WS? expression?
 ?arraydec: OPEN_SQUARE _WS? arraydeclist? _WS? CLOSE_SQUARE
 ?arraykeydec: expression _WS? COLON
 arraydecele: arraykeydec? _WS? expression
-?arraydeclist: arraydecele _WS? morearraydec?
+?arraydeclist: arraydecele _WS? morearraydec? | COLON
 ?morearraydec: COMMA _WS? arraydecele _WS? morearraydec?
-?classdec: CLASS _WS? NAME _WS? oflist? _WS? haslist? _WS? block
+?classdec: classword _WS? NAME? _WS? oflist? _WS? haslist? _WS? block
 oflist: OF _WS? NAME _WS? moreof?
 ?moreof: COMMA _WS? NAME _WS? moreof?
 haslist: HAS _WS? NAME _WS? morehas?
-?morehas: COMMA _WS? NAME _WS? morehas ?
+?morehas: COMMA _WS? NAME _WS? morehas?
+typeexpr: COLON _WS? arith
+namespace: NAMESPACE _WS? NAME? _WS? block
 ?assign: primary _WS? ASSIGNOP _WS? expression
 ?arith: logicor
 ?logicor: logicand (_WS? OROP _WS? logicand)+ | logicand
@@ -38,18 +40,26 @@ haslist: HAS _WS? NAME _WS? morehas?
 ?unop: UNOP _WS? unop | exponent
 ?exponent: parens _WS? EXPOP _WS? unop | parens
 ?parens: OPEN_PAREN _WS? expression _WS? CLOSE_PAREN | primary
-primary: primary accessor | atom
+?primary: subprime _WS? typeexpr?
+?subprime: subprime _WS? accessor | atom
 ?accessor: dotaccess | call | arrayaccess
-dotaccess: DOT NAME
+dotaccess: dotop NAME
 arrayaccess: OPEN_SQUARE _WS? slices _WS? CLOSE_SQUARE
 call: OPEN_PAREN _WS? arguments? _WS? CLOSE_PAREN
-slices: expression // TODO
+slices: slice _WS? moreslice?
+?slice: expression _WS? toslice?
+?toslice: COLON _WS? expression _WS? incslice?
+?incslice: COLON _WS? expression
+?moreslice: COMMA _WS? slice _WS? moreslice?
 arguments: expression _WS? morearguments?
 morearguments: COMMA _WS? expression _WS? morearguments?
 atom: NAME | literal
 literal: number | string
 number: INT | FLOAT | HEX | BIN | OCT
 string: STRING | ML_STRING
+?classword: CLASS | TRAIT | STATIC
+qualifier: CLASSVAR | FINAL | COMPLETE | FIXED | TERMINAL | CONST | INIT | PRIVATE | NOINHERIT | DEPENDS
+?dotop: DOT
 
 NAME.0: ("a".."z"|"A".."Z"|"_")("a".."z"|"0".."9"|"A".."Z"|"_")*
 INT: "0"|"-"?("1".."9")("0".."9")*
@@ -68,7 +78,7 @@ SHIFTOP: "<<" | ">>"
 BITANDOP: "&"
 BITXOROP: "^"
 BITOROP: "|"
-RELOP: "==" | "!=" | ">" | "<" | ">=" | "<="
+RELOP: "==" | "!=" | ">" | "<" | ">=" | "<=" | IN | HAS | OF | IS | NOTOP _WS? IN | NOTOP _WS? HAS | NOTOP _WS? OF | NOTOP _WS? IS
 NOTOP: "!" | "not"
 ANDOP: "&&" | "and"
 OROP: "||" | "or"
@@ -76,16 +86,31 @@ OPEN_PAREN: "("
 CLOSE_PAREN: ")"
 OPEN_BRACE: "{"
 CLOSE_BRACE: "}"
-IF.1: "if"
-ELIF.1: "elif"
-ELSE.1: "else"
-WHILE.1: "while"
-FOR.1: "for"
-FN.1: "fn"
-RETURN.1: "return"
-CLASS.1: "class"
-OF.1: "of"
-HAS.1: "has"
+IF: "if"
+ELIF: "elif"
+ELSE: "else"
+WHILE: "while"
+FOR: "for"
+FN: "fn"
+RETURN: "return"
+CLASS: "class"
+TRAIT: "trait"
+STATIC: "static"
+FINAL: "final"
+COMPLETE: "complete"
+FIXED: "fixed"
+TERMINAL: "terminal"
+CONST: "const"
+INIT: "init"
+PRIVATE: "private"
+NOINHERIT: "noinherit"
+DEPENDS: "depends"
+CLASSVAR: "classvar"
+NAMESPACE: "namespace"
+OF: "of"
+HAS: "has"
+IN: "in"
+IS: "is"
 DOT: "."
 COMMA: ","
 COLON: ":"

@@ -104,5 +104,5 @@ class classcheese2 { classa = 1; }
 class classcheese3 { classa = 1; classb = 32
     fn smell() { print("smelly"); }
     }
-classcheese3.smell() #fix this
+classcheese3.smell()
 #yoooo

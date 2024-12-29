@@ -6,6 +6,52 @@ import codecs
 from lark import Lark, Token, Tree
 from lark.visitors import Interpreter
 
+class ASTNode:
+    pass
+
+class Statement(ASTNode):
+    pass
+
+class Expression(ASTNode):
+    pass
+
+class Type:
+    def __init__(self, name, of_parents={}, has_parents={}, fields={}, depends_fields={}, instantiable=True, ofable=True, hasable=True, modifiable=True, variants={}, call=None, slots={}):
+        self.name = name
+        self.of_parents = of_parents
+        self.has_parents = has_parents
+        self.fields = fields
+        self.depends_fields = depends_fields
+        self.instantiable = instantiable
+        self.ofable = ofable
+        self.hasable = hasable
+        self.modifiable = modifiable
+        self.variables = variants
+        self.call = call
+        self.slots = slots
+        self.type_sig = self.set_type_sig()
+        self.value = None
+
+    def set_type_sig(self):
+        self.type_sig = "_".join([self.name] + [str(x) for x in self.depends_fields.get_value()])
+
+    def get_value(self):
+        return self.value
+
+class Object:
+    def __init__(self, name, obj_class):
+        self.obj_class = obj_class
+        self.name = name
+        self.attributes = {}
+        self.slots = {}
+        self.call = None
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return "{} of {}: attrs:{}; slots:{}; call:{}".format(self.name, self.obj_class, self.attributes, self.slots, self.call)
+
 class Class:
     def __init__(self, name):
         self.name = name
@@ -128,7 +174,7 @@ class FoxScreamInterp(Interpreter):
         if isinstance(func_obj, Function):
             argument_list = {}
             for i in range(0, len(args)):
-                argument_list[func_obj.args[i]] = args[i]
+                argument_list[str(func_obj.args[i])] = args[i]
             self.scope.push_scope(argument_list)
             res = self.visit(func_obj.body)
             self.scope.pop_scope()
@@ -232,6 +278,9 @@ class FoxScreamInterp(Interpreter):
         return self.visit_or_value(tree.children[1])
 
     def primary(self, tree):
+        return self.visit(tree.children[0])
+
+    def subprime(self, tree):
         if len(tree.children) == 1:
             return self.visit(tree.children[0])
         else:
