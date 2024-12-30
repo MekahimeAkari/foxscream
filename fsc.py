@@ -3,6 +3,7 @@
 import os
 import sys
 import codecs
+import copy
 from lark import Lark, Token, Tree
 from lark.visitors import Interpreter
 
@@ -16,43 +17,159 @@ class Expression(ASTNode):
     pass
 
 class Type:
-    def __init__(self, name, of_parents={}, has_parents={}, fields={}, depends_fields={}, instantiable=True, ofable=True, hasable=True, modifiable=True, variants={}, call=None, slots={}):
+    def __init__(self, name, **kwargs):
         self.name = name
-        self.of_parents = of_parents
-        self.has_parents = has_parents
-        self.fields = fields
-        self.depends_fields = depends_fields
-        self.instantiable = instantiable
-        self.ofable = ofable
-        self.hasable = hasable
-        self.modifiable = modifiable
-        self.variables = variants
-        self.call = call
-        self.slots = slots
-        self.type_sig = self.set_type_sig()
-        self.value = None
+        self.variants = kwargs.get("variants", None)
+        self.set_type_sig()
 
     def set_type_sig(self):
-        self.type_sig = "_".join([self.name] + [str(x) for x in self.depends_fields.get_value()])
+        pass
 
-    def get_value(self):
+    def get_attrs(self):
+        ret_dict = {}
+        ret_dict["name"] = self.name
+        return ret_dict
+
+class ObjectType(Type):
+    def __init__(self, name, **kwargs):
+        super().__init__(name, **kwargs)
+        self.is_instance = kwargs.get("is_instance", False)
+        self.instantiable = kwargs.get("instantiable", True)
+        self.ofable = kwargs.get("ofable", True)
+        self.hasable = kwargs.get("hasable", True)
+        self.modifiable = kwargs.get("modifiable", True)
+        self.of_parents = kwargs.get("of_parents", [])
+        self.has_parents = kwargs.get("has_parents", [])
+        self.class_fields = kwargs.get("class_fields", {})
+        self.set_instance_fields(kwargs.get("instance_fields", {}), kwargs.get("instance_call", None))
+        self.class_call = kwargs.get("class_call", None)
+        self.class_index = kwargs.get("class_index", None)
+        self.instance_index = kwargs.get("instance_index", None)
+        self.resolve_parents()
+
+    def set_instance_fields(self, instance_fields, instance_call):
+        self.instance_fields = {}
+        self.instance_call = None
+        if self.is_instance:
+            for name, field in instance_fields.items():
+                self.instance_fields[name] = copy.copy(field)
+            if instance_call is not None:
+                self.instance_call = copy.copy(instance_call)
+        else:
+            self.instance_fields = instance_fields
+            self.instance_call = instance_call
+
+    def resolve_parents(self):
+        pass
+
+    def get_attrs(self):
+        ret_dict = {}
+        ret_dict["name"] = self.name
+        ret_dict["is_instance"] = self.is_instance
+        ret_dict["instantiable"] = self.instantiable
+        ret_dict["ofable"] = self.ofable
+        ret_dict["hasable"] = self.hasable
+        ret_dict["modifiable"] = self.modifiable
+        ret_dict["of_parents"] = self.of_parents
+        ret_dict["has_parents"] = self.has_parents
+        ret_dict["class_fields"] = self.class_fields
+        ret_dict["instance_fields"] = self.instance_fields
+        ret_dict["class_call"] = self.class_call
+        ret_dict["instance_call"] = self.instance_call
+        ret_dict["class_index"] = self.class_index
+        ret_dict["instance_index"] = self.instance_index
+        return ret_dict
+
+    def instantiate(self):
+        if self.instantiable:
+            attrs = self.get_attrs()
+            attrs["is_instance"] = True
+            attrs["instantiable"] = False
+            return ObjectType(**attrs)
+        else:
+            raise Exception("Cannot instantiate {}".format(self.name))
+
+    def add_field(self, field, class_field=False):
+        if class_field:
+            self.class_fields[field.name] = field
+        else:
+            self.instance_fields[field.name] = field
+
+    def get_field(self, name):
+        if self.is_instance:
+            ret_field = self.instance_fields[name]
+        else:
+            ret_field = self.class_fields[name]
+        ret_field.class_obj = self
+        return ret_field
+
+    def set_field(self, name, value):
+        fields = self.get_fields()
+        if isinstance(fields[name], ValueField) and not isinstance(value, Type):
+            fields[name].value = value
+        else:
+            fields[name] = value
+
+    def get_fields(self):
+        if self.is_instance:
+            return self.instance_fields
+        else:
+            return self.class_fields
+
+    def __call__(self, *args):
+        if self.instantiable:
+            return self.instantiate()
+        elif self.is_instance and self.instance_call is not None:
+            call = self.instance_call
+        elif not self.is_instance and self.class_call is not None:
+            call = self.class_call(*args)
+        else:
+            raise Exception("Cannot call object {}".format(self.name))
+        call.class_obj = self
+        return call(*args)
+
+class TypeField:
+    def __init__(self, name, field_type="Any", depends=False, inheritable=True, replaceable=True, overrideable=True, private=False, const=False, init=False, class_obj=None, **kwargs):
+        self.name = name
+        self.field_type = field_type
+        self.inheritable = inheritable
+        self.replaceable = replaceable
+        self.overrideable = overrideable
+        self.private = private
+        self.depends = depends
+        self.const = const
+        self.init = init
+        self.class_obj = class_obj
+
+    def get_value_or_field(self):
+        return self
+
+class FuncField(TypeField):
+    def __init__(self, name, args, body, scope, visit, **kwargs):
+        self.args = args
+        self.body = body
+        self.scope = scope
+        self.visit = visit
+        super().__init__(name, **kwargs)
+
+    def __call__(self, *args):
+        argument_list = {}
+        for i in range(0, len(args)):
+            argument_list[str(self.args[i])] = args[i]
+        self.scope.push_scope(argument_list, class_obj=self.class_obj)
+        res = self.visit(self.body)
+        self.scope.pop_scope()
+        return res
+
+class ValueField(TypeField):
+    def __init__(self, name, value, **kwargs):
+        super().__init__(name, **kwargs)
+        self.value = value
+
+    def get_value_or_field(self):
         return self.value
 
-class Object:
-    def __init__(self, name, obj_class):
-        self.obj_class = obj_class
-        self.name = name
-        self.attributes = {}
-        self.slots = {}
-        self.call = None
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        return "{} of {}: attrs:{}; slots:{}; call:{}".format(self.name, self.obj_class, self.attributes, self.slots, self.call)
-
-class Class:
+class InterpClass:
     def __init__(self, name):
         self.name = name
         self.slots = {}
@@ -112,11 +229,19 @@ class Scope:
         self.capture_next_scope = False
         self.capture_scope = None
         self.captured_scope = None
+        self.class_obj = []
 
     def print_cur_scope(self, prefix=""):
         print(prefix, "scope", self.scope, self.variables[self.scope], '\n')
 
     def assign(self, name, value):
+        if len(self.class_obj) > 0:
+            class_objs = len(self.class_obj)-1
+            while class_objs >= 0:
+                if name in self.class_obj[class_objs].get_fields():
+                    self.class_obj[class_objs].set_field(name, value)
+                    return self.class_obj[class_objs].get_field(name)
+                class_objs -= 1
         scope = self.scope
         while scope >= 0:
             if name in self.variables[scope].keys():
@@ -127,10 +252,22 @@ class Scope:
         return self.variables[self.scope][name]
 
     def set_variable(self, name, value):
+        if len(self.class_obj) > 0:
+            self.class_obj[-1].set_field[name] = value
         self.variables[self.scope][name] = value
         return self.variables[self.scope][name]
 
     def get_value(self, name):
+        if len(self.class_obj) > 0:
+            class_objs = len(self.class_obj)-1
+            while class_objs >= 0:
+                if name in self.class_obj[class_objs].get_fields():
+                    ret_field = self.class_obj[class_objs].get_field(name)
+                    if isinstance(ret_field, ValueField):
+                        return ret_field.value
+                    else:
+                        return ret_field
+                class_objs -= 1
         scope = self.scope
         while scope >= 0:
             if name in self.variables[scope]:
@@ -138,11 +275,13 @@ class Scope:
             scope -= 1
         raise Exception("No variable {}".format(name))
 
-    def push_scope(self, new_scope={}, throw=False):
+    def push_scope(self, new_scope={}, class_obj=None):
         if self.capture_next_scope is True:
             self.capture_scope = self.scope + 1
             self.capture_next_scope = False
             self.captured_scope = None
+        if class_obj is not None:
+            self.class_obj.append(class_obj)
         self.variables.append(dict(new_scope))
         self.scope += 1
 
@@ -150,6 +289,8 @@ class Scope:
         if self.capture_scope == self.scope:
             self.captured_scope = dict(self.variables[-1])
             self.capture_scope = None
+        if len(self.class_obj) > 0:
+            self.class_obj.pop()
         self.variables.pop()
         self.scope -= 1
 
@@ -171,16 +312,7 @@ class FoxScreamInterp(Interpreter):
 
     def call_function(self, name, *args):
         func_obj = self.get_value(name)
-        if isinstance(func_obj, Function):
-            argument_list = {}
-            for i in range(0, len(args)):
-                argument_list[str(func_obj.args[i])] = args[i]
-            self.scope.push_scope(argument_list)
-            res = self.visit(func_obj.body)
-            self.scope.pop_scope()
-            return res
-        else:
-            return func_obj(*args)
+        return func_obj(*args)
 
     def visit_or_value(self, tree):
         if isinstance(tree, Tree):
@@ -293,7 +425,7 @@ class FoxScreamInterp(Interpreter):
                 return self.get_value(accessed_ele)[self.get_value(accessor)]
             elif tree.children[1].data == "dotaccess":
                 accessor = self.visit_or_value(tree.children[1])
-                return self.get_value(accessed_ele).access(self.get_value(accessor))
+                return self.get_value(accessed_ele).get_field(self.get_value(accessor))
             raise Exception("wat")
 
     def logicnot(self, tree):
@@ -526,7 +658,7 @@ class FoxScreamInterp(Interpreter):
             body = tree.children[5]
         else:
             body = tree.children[4]
-        return self.scope.set_variable(name, Function(args.args, body))
+        return self.scope.set_variable(name, FuncField(name, args.args, body, self.scope, self.visit))
 
     def moreargs(self, tree):
         ret_args = ArgList()
@@ -590,7 +722,7 @@ class FoxScreamInterp(Interpreter):
 
     def classdec(self, tree):
         new_class_name = self.visit_or_value(tree.children[1])
-        new_class = Class(new_class_name)
+        new_class = ObjectType(new_class_name)
         next_index = 2
         of_list = None
         has_list = None
@@ -606,7 +738,10 @@ class FoxScreamInterp(Interpreter):
             self.visit(tree.children[next_index])
             class_defs = self.scope.captured_scope
             for member_name, member_val in class_defs.items():
-                new_class.add_slot(member_name, member_val)
+                if isinstance(member_val, TypeField):
+                    new_class.add_field(member_val)
+                else:
+                    new_class.add_field(ValueField(member_name, member_val))
         return self.scope.set_variable(new_class_name, new_class)
 
     def start(self, tree):

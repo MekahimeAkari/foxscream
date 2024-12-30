@@ -102,7 +102,12 @@ print(arr2[1], arr3["j"])
 class classcheese {}
 class classcheese2 { classa = 1; }
 class classcheese3 { classa = 1; classb = 32
-    fn smell() { print("smelly"); }
+    fn smell() { classa = classa + 1; print("smelly", classa); }
     }
-classcheese3.smell()
+cc3 = classcheese3()
+cc31 = classcheese3()
+cc3.smell()
+cc3.smell()
+cc31.smell()
+cc3.smell()
 #yoooo

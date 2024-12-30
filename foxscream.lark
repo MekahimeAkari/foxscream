@@ -2,14 +2,21 @@ start: statements
 
 statements: statement*
 ?statement: _WS? qualifier* _WS? expression _WS_INLINE? _END_STMT _WS?
-?expression: assign | arith | block | ifstmt | whilestmt | funcdef | returnstmt | arraydec | classdec | namespace
+?expression: assign | arith | block | ifstmt | whilestmt | funcdef | returnstmt | arraydec | classdec | namespace | operatordef
 ?stmt_or_block: expression | block
 ?block: OPEN_BRACE _WS? statements _WS? CLOSE_BRACE
 ?ifstmt: IF _WS? expression _WS? stmt_or_block _WS? elifstmt?
 ?elifstmt: ELIF _WS? expression _WS? stmt_or_block _WS? elifstmt? | elsestmt
 ?elsestmt: ELSE _WS? stmt_or_block
 ?whilestmt: WHILE _WS? expression _WS? stmt_or_block
-?funcdef: FN _WS? NAME? _WS? OPEN_PAREN _WS? arglist? _WS? CLOSE_PAREN _WS? typeexpr? block
+?funcdef: FN _WS? NAME? _WS? OPEN_PAREN _WS? arglist? _WS? CLOSE_PAREN _WS? rettypeexpr? _WS? block
+?operatordef: OPERATOR _WS? name_or_self? _WS? opop _WS? name_or_self? _WS? rettypeexpr? _WS? block
+?opop: opnormalop | opaccessop
+?opnormalop: ASSIGNOP | SUMOP | UNOP | EXPOP | PRODUCTOP | SHIFTOP | BITANDOP | BITXOROP | BITOROP | RELOP | NOTOP | ANDOP | OROP
+?opaccessop: openop _WS? arglist? _WS? closeop
+?openop: OPEN_PAREN | OPEN_SQUARE
+?closeop: CLOSE_PAREN | CLOSE_SQUARE
+?name_or_self: NAME _WS? typeexpr? | SELF
 ?arglist: primary _WS? moreargs?
 ?moreargs: COMMA _WS? NAME _WS? moreargs?
 ?returnstmt: RETURN _WS? expression?
@@ -24,6 +31,7 @@ oflist: OF _WS? NAME _WS? moreof?
 haslist: HAS _WS? NAME _WS? morehas?
 ?morehas: COMMA _WS? NAME _WS? morehas?
 typeexpr: COLON _WS? arith
+rettypeexpr: ARROW _WS? arith
 namespace: NAMESPACE _WS? NAME? _WS? block
 ?assign: primary _WS? ASSIGNOP _WS? expression
 ?arith: logicor
@@ -107,6 +115,8 @@ NOINHERIT: "noinherit"
 DEPENDS: "depends"
 CLASSVAR: "classvar"
 NAMESPACE: "namespace"
+OPERATOR: "operator"
+SELF: "self"
 OF: "of"
 HAS: "has"
 IN: "in"
@@ -114,6 +124,7 @@ IS: "is"
 DOT: "."
 COMMA: ","
 COLON: ":"
+ARROW: "->"
 OPEN_SQUARE: "["
 CLOSE_SQUARE: "]"
 _END_STMT.1: (";" | "\n")
