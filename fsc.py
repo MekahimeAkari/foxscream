@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
-import os
+try:
+    import readline
+except ModuleNotFoundError:
+    pass
 import sys
 import codecs
 import copy
@@ -29,6 +32,9 @@ class Type:
         ret_dict = {}
         ret_dict["name"] = self.name
         return ret_dict
+
+class InterpException(Exception):
+    pass
 
 class ObjectType(Type):
     def __init__(self, name, **kwargs):
@@ -87,7 +93,7 @@ class ObjectType(Type):
             attrs["instantiable"] = False
             return ObjectType(**attrs)
         else:
-            raise Exception("Cannot instantiate {}".format(self.name))
+            raise InterpException("Cannot instantiate {}".format(self.name))
 
     def add_field(self, field, class_field=False):
         if class_field:
@@ -124,7 +130,7 @@ class ObjectType(Type):
         elif not self.is_instance and self.class_call is not None:
             call = self.class_call(*args)
         else:
-            raise Exception("Cannot call object {}".format(self.name))
+            raise InterpException("Cannot call object {}".format(self.name))
         call.class_obj = self
         return call(*args)
 
@@ -273,7 +279,7 @@ class Scope:
             if name in self.variables[scope]:
                 return self.variables[scope][name]
             scope -= 1
-        raise Exception("No variable {}".format(name))
+        raise InterpException("No variable {}".format(name))
 
     def push_scope(self, new_scope={}, class_obj=None):
         if self.capture_next_scope is True:
@@ -305,9 +311,10 @@ class Scope:
 
 class FoxScreamInterp(Interpreter):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, parser, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.scope = Scope()
+        self.parser = parser
         self.reserved = ["true", "false", "null"]
 
     def call_function(self, name, *args):
@@ -325,7 +332,7 @@ class FoxScreamInterp(Interpreter):
     def get_value(self, value):
         if isinstance(value, Name):
             return self.scope.get_value(value.name)
-        elif isinstance(value, Value):
+        elif hasattr(value, "value"):
             return value.value
         else:
             return value
@@ -426,7 +433,7 @@ class FoxScreamInterp(Interpreter):
             elif tree.children[1].data == "dotaccess":
                 accessor = self.visit_or_value(tree.children[1])
                 return self.get_value(accessed_ele).get_field(self.get_value(accessor))
-            raise Exception("wat")
+            raise InterpException("Unimplemented access {}".format(tree.children[1].data))
 
     def logicnot(self, tree):
         if len(tree.children) == 1:
@@ -598,9 +605,9 @@ class FoxScreamInterp(Interpreter):
         else:
             lhs = self.visit(tree.children[0])
             if not isinstance(lhs, Name):
-                raise Exception("{} is not a Name".format(lhs))
+                raise InterpException("{} is not a Name".format(lhs))
             if lhs.name in self.reserved:
-                raise Exception("Cannot assign to {}".format(lhs))
+                raise InterpException("Cannot assign to {}".format(lhs))
             #lhs_value = self.scope.get(lhs.name, None)
             op = self.get_value(tree.children[1])
             rhs = self.visit(tree.children[2])
@@ -757,13 +764,37 @@ class FoxScreamInterp(Interpreter):
         return ret
 
     def __default__(self, tree):
-        raise Exception("No {}, tree: {}".format(tree.data, tree))
+        raise InterpException("Unimplemented grammar rule {}, tree: {}".format(tree.data, tree))
+
+    def parse(self, string, print_parse=True):
+        parse_res = self.parser.parse(string)
+        if print_parse:
+            print(parse_res.pretty())
+        return self.visit(parse_res)
 
 parser = Lark.open('foxscream.lark', rel_to=__file__)
 prog_text = ""
-with open(sys.argv[1]) as prog_file:
-    prog_text = prog_file.read()
-parse = parser.parse(prog_text)
-print(parse.pretty())
-
-FoxScreamInterp().visit(parse)
+interp = FoxScreamInterp(parser)
+if len(sys.argv) > 1:
+    with open(sys.argv[1]) as prog_file:
+        prog_text = prog_file.read()
+    interp.parse(prog_text)
+else:
+    interp_face = "<^.^>"
+    print("Welcome to foxscream! This language is silly")
+    print("Type 'quit' or 'exit' to leave")
+    while True:
+        try:
+            s = input("{} >>> ".format(interp_face))
+            if s == "exit" or s == "quit":
+                print()
+                break
+            try:
+                interp.parse(s + ";")
+                interp_face = "<^.^>"
+            except (InterpException, AttributeError, IndexError, KeyError, ArithmeticError, TypeError) as e:
+                print(repr(e))
+                interp_face = "<^-^;>"
+        except EOFError:
+            print()
+            break
