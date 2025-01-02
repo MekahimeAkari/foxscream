@@ -1,7 +1,8 @@
 start: statements
 
 statements: statement*
-?statement: _WS? qualifier* _WS? expression _WS_INLINE? _END_STMT _WS?
+statement: _WS? qualifier* _WS? expression _WS_INLINE? _END_STMT _WS? | emptystmt
+?emptystmt: _WS? _END_STMT _WS?
 ?expression: assign | arith | block | ifstmt | whilestmt | funcdef | returnstmt | arraydec | classdec | namespace | operatordef
 ?stmt_or_block: expression | block
 ?block: OPEN_BRACE _WS? statements _WS? CLOSE_BRACE
@@ -17,8 +18,8 @@ statements: statement*
 ?openop: OPEN_PAREN | OPEN_SQUARE
 ?closeop: CLOSE_PAREN | CLOSE_SQUARE
 ?name_or_self: NAME _WS? typeexpr? | SELF
-?arglist: primary _WS? moreargs?
-?moreargs: COMMA _WS? NAME _WS? moreargs?
+arglist: primary _WS? moreargs?
+moreargs: COMMA _WS? NAME _WS? moreargs?
 ?returnstmt: RETURN _WS? expression?
 ?arraydec: OPEN_SQUARE _WS? arraydeclist? _WS? CLOSE_SQUARE
 ?arraykeydec: expression _WS? COLON
@@ -48,8 +49,8 @@ namespace: NAMESPACE _WS? NAME? _WS? block
 ?unop: UNOP _WS? unop | exponent
 ?exponent: parens _WS? EXPOP _WS? unop | parens
 ?parens: OPEN_PAREN _WS? expression _WS? CLOSE_PAREN | primary
-?primary: subprime _WS? typeexpr?
-?subprime: subprime _WS? accessor | atom
+primary: subprime _WS? typeexpr?
+subprime: subprime _WS? accessor | atom
 ?accessor: dotaccess | call | arrayaccess
 dotaccess: dotop NAME
 arrayaccess: OPEN_SQUARE _WS? slices _WS? CLOSE_SQUARE
@@ -94,9 +95,9 @@ OPEN_PAREN: "("
 CLOSE_PAREN: ")"
 OPEN_BRACE: "{"
 CLOSE_BRACE: "}"
-IF: "if"
-ELIF: "elif"
-ELSE: "else"
+IF.1: "if"
+ELIF.1: "elif"
+ELSE.2: "else"
 WHILE: "while"
 FOR: "for"
 FN: "fn"

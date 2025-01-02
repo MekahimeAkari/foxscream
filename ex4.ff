@@ -1,0 +1,23 @@
+b = 1
+a = 2
+if b == 2
+    zz4 = 5
+
+if a == 4
+    { zz3 = 2; zz3=2; }
+elif a == 2
+    zz3=3
+elif a == 3
+    zz3=4
+elif a == 1
+    zz3=5
+else
+    zz3 = 1
+
+zz40 = 0
+if a != 1
+    zz40 = 1
+else
+    zz40 = 2
+
+print(zz40)
