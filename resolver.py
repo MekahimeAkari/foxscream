@@ -4,6 +4,8 @@ from typing import Any
 from dataclasses import dataclass, field
 from fsc_exceptions import InterpException
 import ast_interp
+import copy
+import pprint
 
 @dataclass(frozen=True, eq=True)
 class FieldAddress:
@@ -479,27 +481,53 @@ class Environment:
         self.names[name] = reference
 
 @dataclass(kw_only=True)
+class MiniFunc:
+    args: list[str]
+    body: ast_interp.Block
+    def call(self, *args, environment=None):
+        arglist = {}
+        arg_i = 0
+        for arg in args:
+            arglist[self.args[arg_i]] = arg
+            arg_i += 1
+        func_environment = environment.new_scope(new_scope_names=arglist)
+        return self.body.run(environment=func_environment, add_scope=False)
+
+@dataclass(kw_only=True)
 class MiniObject:
     fields: dict[str, MiniObject] = field(default_factory=dict)
     value: Any | None = None
     qualifiers: list[str] | None = None
-    def get(self, field=None, value=False, field_create=False):
-        if field is None or len(field) == 0:
+    function: Any | None = None
+    instance_fields: dict[str, MiniObject] = field(default_factory=dict)
+    is_class: bool = False
+
+    def get(self, field_name=None, value=False, field_create=False):
+        #print(self)
+        if field_name is None:
             if value:
                 return self.value
             return self
         else:
-            head_field = field.pop()
-            if head_field not in self.fields:
-                if len(field) == 0 and field_create is True:
-                    self.fields[head_field] = MiniObject()
+            if field_name not in self.fields:
+                if field_create is True:
+                    self.fields[field_name] = MiniObject()
                 else:
-                    raise InterpException("No field {} within MiniObject".format(head_field))
-            return self.fields[head_field].get(field)
+                    raise InterpException("No field {} within MiniObject ({})".format(field_name, self))
+            return self.fields[field_name]
 
     def assign(self, environment, operator, value):
         if operator == ast_interp.AssignOp.NORMAL:
-            self.value = value
+            if isinstance(value, MiniObject):
+                if value.value is not None:
+                    other_value = value.get(value=True)
+                    self.value = other_value
+                else:
+                    self.fields = value.fields
+                    self.value = value.value
+                    self.function = value.function
+                    self.instance_fields = value.instance_fields
+                    self.is_class = value.is_class
             return self
         raise InterpException("No assignment operator {} implemented for MiniObject".format(operator))
 
@@ -508,45 +536,142 @@ class MiniObject:
             return True
         return False
 
-    def run_operator(self, operator, rhs=None):
+    def run_binop(self, operator, rhs):
         if operator == ast_interp.BinOp.ADD:
             return MiniObject(value=self.get(value=True) + rhs.get(value=True))
         elif operator == ast_interp.BinOp.SUB:
             return MiniObject(value=self.get(value=True) - rhs.get(value=True))
+        elif operator == ast_interp.BinOp.EXP:
+            return MiniObject(value=self.get(value=True) ** rhs.get(value=True))
         elif operator == ast_interp.BinOp.MUL:
             return MiniObject(value=self.get(value=True) * rhs.get(value=True))
         elif operator == ast_interp.BinOp.DIV:
             return MiniObject(value=self.get(value=True) / rhs.get(value=True))
+        elif operator == ast_interp.BinOp.INTDIV:
+            return MiniObject(value=self.get(value=True) // rhs.get(value=True))
+        elif operator == ast_interp.BinOp.MOD:
+            return MiniObject(value=self.get(value=True) % rhs.get(value=True))
+        elif operator == ast_interp.BinOp.LSHIFT:
+            return MiniObject(value=self.get(value=True) << rhs.get(value=True))
+        elif operator == ast_interp.BinOp.LSHIFT:
+            return MiniObject(value=self.get(value=True) << rhs.get(value=True))
+        elif operator == ast_interp.BinOp.BITAND:
+            return MiniObject(value=self.get(value=True) & rhs.get(value=True))
+        elif operator == ast_interp.BinOp.BITXOR:
+            return MiniObject(value=self.get(value=True) ^ rhs.get(value=True))
+        elif operator == ast_interp.BinOp.BITOR:
+            return MiniObject(value=self.get(value=True) | rhs.get(value=True))
         elif operator == ast_interp.BinOp.EQ:
             return MiniObject(value=self.get(value=True) == rhs.get(value=True))
         elif operator == ast_interp.BinOp.NE:
             return MiniObject(value=self.get(value=True) != rhs.get(value=True))
+        elif operator == ast_interp.BinOp.GT:
+            return MiniObject(value=self.get(value=True) > rhs.get(value=True))
+        elif operator == ast_interp.BinOp.LT:
+            return MiniObject(value=self.get(value=True) < rhs.get(value=True))
+        elif operator == ast_interp.BinOp.GE:
+            return MiniObject(value=self.get(value=True) >= rhs.get(value=True))
+        elif operator == ast_interp.BinOp.LE:
+            return MiniObject(value=self.get(value=True) <= rhs.get(value=True))
+        elif operator == ast_interp.BinOp.AND:
+            return MiniObject(value=self.get(value=True) and rhs.get(value=True))
+        elif operator == ast_interp.BinOp.OR:
+            return MiniObject(value=self.get(value=True) or rhs.get(value=True))
 
         raise InterpException("No operator {} implemented for MiniObject".format(operator))
 
-@dataclass
+    def run_unop(self, operator):
+        if operator == ast_interp.UnOp.NEG:
+            return MiniObject(value=-self.get(value=True))
+        elif operator == ast_interp.UnOp.POS:
+            return MiniObject(value=+self.get(value=True))
+        elif operator == ast_interp.UnOp.INV:
+            return MiniObject(value=~self.get(value=True))
+        elif operator == ast_interp.UnOp.NOT:
+            return MiniObject(value=not self.get(value=True))
+
+        raise InterpException("No operator {} implemented for MiniObject".format(operator))
+
+    def run_operator(self, operator, rhs=None):
+        if rhs is not None:
+            return self.run_binop(operator, rhs)
+        else:
+            return self.run_unop(operator)
+
+    def call(self, *args, environment=None):
+        if self.is_class:
+            new_fields = {}
+            for new_field_name, new_field_val in self.instance_fields.items():
+                new_fields[new_field_name] = copy.deepcopy(new_field_val)
+            new_obj = environment.new_obj(fields=new_fields)
+            return new_obj
+        if callable(self.function):
+            call_args = []
+            for arg in args:
+                if hasattr(arg, "get"):
+                    call_args.append(arg.get(value=True))
+                else:
+                    call_args.append(arg)
+            return self.function(*call_args)
+        raise InterpException("Call isn't finished yet")
+
+    def slots_access(self, *key, environment=None):
+        keys = []
+        for access_key in key:
+            if hasattr(access_key, "get"):
+                keys.append(access_key.get(value=True))
+            else:
+                keys.append(access_key)
+        if len(keys) == 1:
+            return self.value[keys[0]]
+        return self.value[*keys]
+
+@dataclass(kw_only=True)
 class MiniEnvironment:
+    parent_scope: MiniEnvironment | None = None
     names: dict[str, Any] = field(default_factory=dict)
-    def get(self, obj, assignment=False, qualifiers=None, accessors=None):
+    def get(self, obj, assignment=False, qualifiers=None, accessors=None, check=False, depth=0):
         obj_ref = obj.run(environment=self, qualifiers=qualifiers)
         ret_obj = None
         if isinstance(obj_ref, str):
             name = obj_ref
-            if (name not in self.names and assignment is False) or accessors is not None:
-                raise InterpException("No name {}".format(name))
+            if name not in self.names:
+                if self.parent_scope is not None:
+                    ret_obj = self.parent_scope.get(obj, assignment=assignment, qualifiers=qualifiers, accessors=accessors, check=True, depth=depth+1)
+                if ret_obj is None:
+                    if check is True:
+                        return None
+                    elif assignment is True and accessors is None:
+                        self.names[name] = MiniObject(qualifiers=qualifiers)
+                        ret_obj = self.names[name]
+                    else:
+                        raise InterpException("No name {} in {}".format(name, self.names))
             else:
-                self.names[name] = MiniObject(qualifiers=qualifiers)
-            ret_obj = self.names[name].get(accessors)
+                ret_obj = self.names[name]
         else:
             ret_obj = obj_ref
+        if accessors is not None and check is False:
+            ret_obj = accessors.run(ret_obj, environment=self, qualifiers=qualifiers)
         return ret_obj
 
     def new_obj(self, **kwargs):
         return MiniObject(**kwargs)
 
+    def new_func(self, body, *args):
+        return MiniFunc(args=args, body=body)
+
     def add_name(self, name, ref):
         self.names[name] = ref
         return self.names
 
+    def add_func(self, name, body, *args):
+        return self.add_name(name, self.new_func(body, *args))
+
     def add_obj(self, name, **kwargs):
         return self.add_name(name, self.new_obj(**kwargs))
+
+    def new_scope(self, new_scope_names=None):
+        if new_scope_names is None:
+            new_scope_names = {}
+        new_env = MiniEnvironment(parent_scope=self, names=new_scope_names)
+        return new_env

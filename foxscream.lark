@@ -4,8 +4,8 @@ statements: statement*
 statement: _WS? qualifier* _WS? expression _WS_INLINE? _END_STMT _WS? | emptystmt
 ?emptystmt: _WS? _END_STMT _WS?
 ?expression: assign | arith | block | ifstmt | whilestmt | funcdef | returnstmt | arraydec | classdec | namespace | operatordef
-?stmt_or_block: expression | block
-?block: OPEN_BRACE _WS? statements _WS? CLOSE_BRACE
+stmt_or_block: expression | block
+block: OPEN_BRACE _WS? statements _WS? CLOSE_BRACE
 ?ifstmt: IF _WS? expression _WS? stmt_or_block _WS? elifstmt?
 ?elifstmt: ELIF _WS? expression _WS? stmt_or_block _WS? elifstmt? | elsestmt
 ?elsestmt: ELSE _WS? stmt_or_block
@@ -70,7 +70,7 @@ string: STRING | ML_STRING
 qualifier: CLASSVAR | FINAL | COMPLETE | FIXED | TERMINAL | CONST | INIT | PRIVATE | NOINHERIT | DEPENDS
 ?dotop: DOT
 
-NAME.0: ("a".."z"|"A".."Z"|"_")("a".."z"|"0".."9"|"A".."Z"|"_")*
+NAME.-9: ("a".."z"|"A".."Z"|"_")("a".."z"|"0".."9"|"A".."Z"|"_")*
 INT: "0"|"-"?("1".."9")("0".."9")*
 FLOAT: "-"?("0".."9")+"."("0".."9")+
 HEX: "0x" ("a".."f"|"A".."F"|"0".."9")+
@@ -96,7 +96,7 @@ CLOSE_PAREN: ")"
 OPEN_BRACE: "{"
 CLOSE_BRACE: "}"
 IF.1: "if"
-ELIF.1: "elif"
+ELIF.2: "elif"
 ELSE.2: "else"
 WHILE: "while"
 FOR: "for"

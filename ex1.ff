@@ -55,7 +55,7 @@ while n > 0
 while n < 5
     n = n + 1
 print(a)
-fn cheese() { cheese=1; }
+fn cheese() { cheese_1=1; }
 fn print2(a1)
 {
     print(a1)
