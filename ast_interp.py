@@ -1,12 +1,13 @@
 from __future__ import annotations
 from typing import Any
 from dataclasses import dataclass, field
-from resolver import Environment
 from enum import Enum, auto
 
 @dataclass(kw_only=True)
 class ASTNode:
-    environment: Environment | None = None
+    environment: Any | None = None
+    def run(self, environment=None):
+        raise Exception("run() for {} not yet implemented".format(type(self).__name__))
 
 class Qualifier(Enum):
     CLASSVAR = auto()
@@ -67,10 +68,28 @@ class ClassType(Enum):
 @dataclass(kw_only=True)
 class Name(ASTNode):
     name: str
+    def run(self, **kwargs):
+        return self.name
 
 @dataclass(kw_only=True)
 class Literal(ASTNode):
     value: Any
+    def run(self, environment=None, qualifiers=None):
+        if environment is None:
+            environment = self.environment
+        return environment.new_obj(value=self.value, qualifiers=qualifiers)
+
+@dataclass(kw_only=True)
+class StringLiteral(Literal):
+    value: str
+
+@dataclass(kw_only=True)
+class IntLiteral(Literal):
+    value: int
+
+@dataclass(kw_only=True)
+class FloatLiteral(Literal):
+    value: float
 
 @dataclass(kw_only=True)
 class Accessor(ASTNode):
@@ -79,6 +98,16 @@ class Accessor(ASTNode):
 @dataclass(kw_only=True)
 class Call(Accessor):
     args: list[Expression] = field(default_factory=list)
+    def run(self, obj, environment=None, qualifiers=None):
+        if environment is None:
+            environment = self.environment
+        args = []
+        for arg in self.args:
+            args.append(arg.run(environment=environment, qualifiers=qualifiers))
+        res = obj.call(*args)
+        if self.accessor is not None:
+            res = self.accessor(res, environment=None, qualifiers=None)
+        return res
 
 @dataclass(kw_only=True)
 class Slice(Accessor):
@@ -91,6 +120,8 @@ class Field(Accessor):
 @dataclass(kw_only=True)
 class Expression(ASTNode):
     pass
+    def run(self, environment=None, qualifiers=None):
+        raise Exception("run() for {} not yet implemented".format(type(self).__name__))
 
 @dataclass(kw_only=True)
 class TypeExpr(ASTNode):
@@ -101,18 +132,33 @@ class Primary(ASTNode):
     typebound: TypeExpr | None = None
     target: Name | Literal
     accessor: Accessor | None = None
+    def run(self, environment=None, qualifiers=None, assignment=False):
+        if environment is None:
+            environment = self.environment
+        return environment.get(self.target, assignment=assignment, qualifiers=qualifiers, accessors=self.accessor.run() if self.accessor is not None else None)
 
 @dataclass(kw_only=True)
 class Assignment(Expression):
     target: Primary
     operator: AssignOp
     expression: Expression
+    def run(self, environment=None, qualifiers=None):
+        if environment is None:
+            environment = self.environment
+        assignment_target = self.target.run(environment=environment, qualifiers=qualifiers, assignment=True)
+        assignment_value = self.expression.run(environment=environment, qualifiers=qualifiers)
+        return assignment_target.assign(self.environment, self.operator, assignment_value)
 
 @dataclass(kw_only=True)
 class BinExpr(Expression):
     lhs: Expression
     operator: BinOp
     rhs: Expression
+    def run(self, environment=None, qualifiers=None):
+        if environment is None:
+            environment = self.environment
+        lhs_res = self.lhs.run(environment=environment, qualifiers=qualifiers)
+        return lhs_res.run_operator(self.operator, rhs=self.rhs.run(environment=environment, qualifiers=qualifiers))
 
 @dataclass(kw_only=True)
 class UnExpr(Expression):
@@ -129,6 +175,17 @@ class IfStatement(Expression):
     block: Block
     elifs: list[ElifStatement] | None
     else_stmt: ElseStatement | None
+    def run(self, environment=None, qualifiers=None):
+        if environment is None:
+            environment = self.environment
+        if self.condition.run(environment=environment, qualifiers=qualifiers).to_bool():
+            return self.block.run(environment=environment, qualifiers=qualifiers)
+        if self.elifs is not None:
+            for elif_stmt in self.elifs:
+                if elif_stmt.condition.run(environment=environment, qualifiers=qualifiers).to_bool():
+                    return elif_stmt.block.run(environment=environment, qualifiers=qualifiers)
+        if self.else_stmt is not None:
+            return self.else_stmt.block.run(environment=environment, qualifiers=qualifiers)
 
 @dataclass(kw_only=True)
 class ElifStatement(Expression):
@@ -171,7 +228,18 @@ class ClassDeclaration(Expression):
 class Statement(ASTNode):
     qualifiers: list[Qualifier] | None = None
     expression: Expression | None = None
+    def run(self, environment=None):
+        if environment is None:
+            environment = self.environment
+        return self.expression.run(environment=environment, qualifiers=self.qualifiers)
 
 @dataclass(kw_only=True)
 class Program(ASTNode):
     statements: list[Statement] = field(default_factory=list)
+    def run(self, environment=None):
+        results = []
+        if environment is None:
+            environment = self.environment
+        for statement in self.statements:
+            results.append(statement.run(environment=environment))
+        return results

@@ -1,0 +1,2 @@
+class InterpException(Exception):
+    pass

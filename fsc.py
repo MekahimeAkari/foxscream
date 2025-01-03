@@ -10,7 +10,8 @@ import copy
 import pprint
 from lark import Lark, Token, Tree
 from lark.visitors import Interpreter
-from resolver import Environment
+from resolver import MiniEnvironment
+from fsc_exceptions import InterpException
 import ast_interp
 
 class Type:
@@ -26,9 +27,6 @@ class Type:
         ret_dict = {}
         ret_dict["name"] = self.name
         return ret_dict
-
-class InterpException(Exception):
-    pass
 
 class ObjectType(Type):
     def __init__(self, name, **kwargs):
@@ -784,7 +782,12 @@ class FoxScreamInterpNew(Interpreter):
     def __init__(self, parser, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.parser = parser
-        self.prog = ast_interp.Program()
+        self.env = MiniEnvironment()
+        self.env.add_name("print", print)
+        self.env.add_obj("true", value=True)
+        self.env.add_obj("false", value=False)
+        self.env.add_obj("null", value=None)
+        self.prog = None
 
     def visit_child(self, tree, num):
         return self.visit(tree.children[num])
@@ -894,9 +897,11 @@ class FoxScreamInterpNew(Interpreter):
     def number(self, tree):
         num_type = tree.children[0].type
         num_val = tree.children[0].value
+        constructor = ast_interp.IntLiteral
         if num_type == "INT":
             new_value = int(num_val)
         elif num_type == "FLOAT":
+            constructor = ast_interp.FloatLiteral
             new_value = float(num_val)
         elif num_type == "HEX":
             new_value = int(num_val, 16)
@@ -904,7 +909,7 @@ class FoxScreamInterpNew(Interpreter):
             new_value = int(num_val, 2)
         elif num_type == "OCT":
             new_value = int(num_val, 8)
-        return new_value
+        return constructor(value=new_value)
 
     def string(self, tree):
         is_r = False
@@ -923,13 +928,16 @@ class FoxScreamInterpNew(Interpreter):
         if not is_r:
             string_val = codecs.escape_decode(bytes(string_val, "utf-8"))[0].decode("utf-8")
 
-        return string_val
+        return ast_interp.StringLiteral(value=string_val)
 
     def literal(self, tree):
         return self.visit(tree.children[0])
 
     def parens(self, tree):
-        return self.visit_or_value(tree.children[0])
+        if len(tree.children) == 1:
+            return self.visit_or_value(tree.children[0])
+        else:
+            return self.visit_or_value(tree.children[1])
 
     def unop(self, tree):
         return ast_interp.UnExpr(operator=self.get_unop(self.visit_or_value(tree.children[0])),
@@ -975,7 +983,7 @@ class FoxScreamInterpNew(Interpreter):
 
     def atom(self, tree):
         if isinstance(tree.children[0], Tree):
-            return ast_interp.Literal(value=self.visit(tree.children[0]))
+            return self.visit(tree.children[0])
         else:
             return ast_interp.Name(name=self.visit_or_value(tree.children[0]))
 
@@ -1139,18 +1147,23 @@ class FoxScreamInterpNew(Interpreter):
     def statements(self, tree):
         stmts = []
         for child in tree.children:
-            stmts.append(self.visit(child))
+            visited_stmt = self.visit(child)
+            if visited_stmt is not None and visited_stmt.expression is not None:
+                stmts.append(visited_stmt)
         return stmts
 
     def start(self, tree):
-        self.prog.statements.append(self.visit(tree.children[0]))
+        self.prog = ast_interp.Program(environment=self.env, statements=self.visit(tree.children[0]))
         pprint.pp(self.prog)
+        return self.prog
 
-    def parse(self, string, print_parse=True):
+    def parse(self, string, print_parse=True, run_parse=True):
         parse_res = self.parser.parse(string)
         if print_parse:
             print(parse_res.pretty())
-        return self.visit(parse_res)
+        prog_res = self.visit(parse_res)
+        prog_res.run()
+        pprint.pp(prog_res)
 
 parser = Lark.open('foxscream.lark', rel_to=__file__)
 prog_text = ""

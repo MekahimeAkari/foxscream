@@ -2,6 +2,8 @@
 from __future__ import annotations
 from typing import Any
 from dataclasses import dataclass, field
+from fsc_exceptions import InterpException
+import ast_interp
 
 @dataclass(frozen=True, eq=True)
 class FieldAddress:
@@ -475,3 +477,76 @@ class Environment:
 
     def add_name(self, name, reference):
         self.names[name] = reference
+
+@dataclass(kw_only=True)
+class MiniObject:
+    fields: dict[str, MiniObject] = field(default_factory=dict)
+    value: Any | None = None
+    qualifiers: list[str] | None = None
+    def get(self, field=None, value=False, field_create=False):
+        if field is None or len(field) == 0:
+            if value:
+                return self.value
+            return self
+        else:
+            head_field = field.pop()
+            if head_field not in self.fields:
+                if len(field) == 0 and field_create is True:
+                    self.fields[head_field] = MiniObject()
+                else:
+                    raise InterpException("No field {} within MiniObject".format(head_field))
+            return self.fields[head_field].get(field)
+
+    def assign(self, environment, operator, value):
+        if operator == ast_interp.AssignOp.NORMAL:
+            self.value = value
+            return self
+        raise InterpException("No assignment operator {} implemented for MiniObject".format(operator))
+
+    def to_bool(self):
+        if self.value is True:
+            return True
+        return False
+
+    def run_operator(self, operator, rhs=None):
+        if operator == ast_interp.BinOp.ADD:
+            return MiniObject(value=self.get(value=True) + rhs.get(value=True))
+        elif operator == ast_interp.BinOp.SUB:
+            return MiniObject(value=self.get(value=True) - rhs.get(value=True))
+        elif operator == ast_interp.BinOp.MUL:
+            return MiniObject(value=self.get(value=True) * rhs.get(value=True))
+        elif operator == ast_interp.BinOp.DIV:
+            return MiniObject(value=self.get(value=True) / rhs.get(value=True))
+        elif operator == ast_interp.BinOp.EQ:
+            return MiniObject(value=self.get(value=True) == rhs.get(value=True))
+        elif operator == ast_interp.BinOp.NE:
+            return MiniObject(value=self.get(value=True) != rhs.get(value=True))
+
+        raise InterpException("No operator {} implemented for MiniObject".format(operator))
+
+@dataclass
+class MiniEnvironment:
+    names: dict[str, Any] = field(default_factory=dict)
+    def get(self, obj, assignment=False, qualifiers=None, accessors=None):
+        obj_ref = obj.run(environment=self, qualifiers=qualifiers)
+        ret_obj = None
+        if isinstance(obj_ref, str):
+            name = obj_ref
+            if (name not in self.names and assignment is False) or accessors is not None:
+                raise InterpException("No name {}".format(name))
+            else:
+                self.names[name] = MiniObject(qualifiers=qualifiers)
+            ret_obj = self.names[name].get(accessors)
+        else:
+            ret_obj = obj_ref
+        return ret_obj
+
+    def new_obj(self, **kwargs):
+        return MiniObject(**kwargs)
+
+    def add_name(self, name, ref):
+        self.names[name] = ref
+        return self.names
+
+    def add_obj(self, name, **kwargs):
+        return self.add_name(name, self.new_obj(**kwargs))
