@@ -315,7 +315,7 @@ class ClassDeclaration(Expression):
         if self.class_type == ClassType.CLASS:
             field_environment = environment.new_scope()
             self.block.run(environment=field_environment, qualifiers=qualifiers, add_scope=False)
-            new_obj = environment.add_obj(self.name, is_class=True, instance_fields=copy.deepcopy(field_environment.names))
+            new_obj = environment.add_obj(self.name, of_list=self.of_list, is_class=True, instance_fields=copy.deepcopy(field_environment.names))
             return new_obj
         else:
             raise Exception("Other classes not done")

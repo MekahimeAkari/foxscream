@@ -110,4 +110,22 @@ cc3.smell()
 cc3.smell()
 cc31.smell()
 cc3.smell()
+
+class zibgon { bah = "no"; }
+class zorgon { bah = "yeh"; }
+
+class childcheese of classcheese3, classcheese, zibgon, zorgon {}
+ccc1 = childcheese()
+ccc1.smell()
+print(ccc1.bah)
+print(ccc1 of classcheese)
+print(ccc1 of classcheese2)
+print(childcheese of zorgon)
 #yoooo
+
+#*
+    multiline comment??
+    #**#
+    mabye?? #maybe?
+print("chees")
+*# print("chees")

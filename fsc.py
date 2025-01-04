@@ -25,6 +25,12 @@ class FoxScreamInterp(Interpreter):
         self.env.add_obj("null", value=None)
         print(self.env)
         self.prog = None
+        self.anon_num = 0
+
+    def get_anon_name(self, name_type):
+        num = self.anon_num
+        self.anon_num += 1
+        return "anon_{}_{}".format(name_type, num)
 
     def visit_child(self, tree, num):
         return self.visit(tree.children[num])
@@ -224,12 +230,40 @@ class FoxScreamInterp(Interpreter):
         else:
             return ast_interp.Name(name=self.visit_or_value(tree.children[0]))
 
+    def moreof(self, tree):
+        of_list = [ast_interp.Name(name=self.visit_or_value(tree.children[1]))]
+        if len(tree.children) > 2:
+            of_list.extend(self.visit(tree.children[2]))
+        return of_list
+
+    def oflist(self, tree):
+        of_list = [ast_interp.Name(name=self.visit_or_value(tree.children[1]))]
+        if len(tree.children) > 2:
+            of_list.extend(self.visit(tree.children[2]))
+        return of_list
+
     def classdec(self, tree):
-        if len(tree.children) > 3:
-            raise InterpException("Do of and has correctly")
-        return ast_interp.ClassDeclaration(class_type=self.get_class_type(self.visit_or_value(tree.children[0])),
-                                           name=self.visit_or_value(tree.children[1]),
-                                           block=self.visit(tree.children[2]))
+        class_type = self.get_class_type(self.visit_or_value(tree.children[0]))
+        of_list = []
+        has_list = []
+        name = self.get_anon_name("class")
+        block = None
+        for child in tree.children:
+            if isinstance(child, Token):
+                name = self.visit_or_value(child)
+            elif child.data == "oflist":
+                of_list = self.visit(child)
+            elif child.data == "haslist":
+                has_list = self.visit(child)
+            elif child.data == "block":
+                block = self.visit(child)
+            else:
+                raise Exception("Unknown classdec component {}".format(child.data))
+        return ast_interp.ClassDeclaration(class_type=class_type,
+                                           name=name,
+                                           of_list=of_list,
+                                           has_list=has_list,
+                                           block=block)
 
     def slices(self, tree): #TODO: Actually implement slicing
         return [(self.visit(tree.children[0]))]

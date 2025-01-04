@@ -133,4 +133,6 @@ _END_STMT.1: (";" | "\n")
 _WS_INLINE: (" "|"\t")+
 _WS: (" "|"\t"|"\r"|"\n")+
 HASH_COMMENT.0: /#[^\n]*/
+ML_HASH_COMMENT.0: /#\*.*\*#/s
 %ignore HASH_COMMENT
+%ignore ML_HASH_COMMENT

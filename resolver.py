@@ -495,12 +495,35 @@ class MiniFunc:
 
 @dataclass(kw_only=True)
 class MiniObject:
+    name: str | None = None
+    of_parents: list[MiniObject] = field(default_factory=list)
     fields: dict[str, MiniObject] = field(default_factory=dict)
     value: Any | None = None
     qualifiers: list[str] | None = None
     function: Any | None = None
     instance_fields: dict[str, MiniObject] = field(default_factory=dict)
     is_class: bool = False
+
+    def add_fields(self, field_dict, new_fields):
+        for field_name, field_value in new_fields.items():
+            if field_name not in field_dict:
+                field_dict[field_name] = copy.deepcopy(field_value)
+
+    def __post_init__(self):
+        if self.of_parents is None:
+            self.of_parents = []
+        for of_parent in reversed(self.of_parents):
+            if self.is_class:
+                self.add_fields(self.instance_fields, of_parent.instance_fields)
+                self.add_fields(self.fields, of_parent.fields)
+            else:
+                self.add_fields(self.fields, of_parent.instance_fields)
+
+    def is_of_parent(self, obj):
+        obj_name = obj
+        if hasattr(obj, "name"):
+            obj_name = obj.name
+        return obj_name in [x.name for x in self.of_parents]
 
     def get(self, field_name=None, value=False, field_create=False):
         #print(self)
@@ -519,15 +542,13 @@ class MiniObject:
     def assign(self, environment, operator, value):
         if operator == ast_interp.AssignOp.NORMAL:
             if isinstance(value, MiniObject):
-                if value.value is not None:
-                    other_value = value.get(value=True)
-                    self.value = other_value
-                else:
-                    self.fields = value.fields
-                    self.value = value.value
-                    self.function = value.function
-                    self.instance_fields = value.instance_fields
-                    self.is_class = value.is_class
+                self.name = value.name
+                self.fields = value.fields
+                self.value = value.value
+                self.function = value.function
+                self.instance_fields = value.instance_fields
+                self.is_class = value.is_class
+                self.of_parents = value.of_parents
             return self
         raise InterpException("No assignment operator {} implemented for MiniObject".format(operator))
 
@@ -577,6 +598,8 @@ class MiniObject:
             return MiniObject(value=self.get(value=True) and rhs.get(value=True))
         elif operator == ast_interp.BinOp.OR:
             return MiniObject(value=self.get(value=True) or rhs.get(value=True))
+        elif operator == ast_interp.BinOp.OF:
+            return MiniObject(value=self.is_of_parent(rhs))
 
         raise InterpException("No operator {} implemented for MiniObject".format(operator))
 
@@ -600,10 +623,12 @@ class MiniObject:
 
     def call(self, *args, environment=None):
         if self.is_class:
-            new_fields = {}
-            for new_field_name, new_field_val in self.instance_fields.items():
-                new_fields[new_field_name] = copy.deepcopy(new_field_val)
-            new_obj = environment.new_obj(fields=new_fields)
+            of_parents = [self]
+            of_parents.extend(self.of_parents)
+            #new_fields = {}
+            #for new_field_name, new_field_val in self.instance_fields.items():
+                #new_fields[new_field_name] = copy.deepcopy(new_field_val)
+            new_obj = environment.new_obj(of_parents=of_parents)
             return new_obj
         if callable(self.function):
             call_args = []
@@ -654,8 +679,15 @@ class MiniEnvironment:
             ret_obj = accessors.run(ret_obj, environment=self, qualifiers=qualifiers)
         return ret_obj
 
-    def new_obj(self, **kwargs):
-        return MiniObject(**kwargs)
+    def new_obj(self, of_list=None, of_parents=None, **kwargs):
+        if of_parents is None:
+            of_parents = []
+            if of_list is None:
+                of_list = []
+            for of_parent in of_list:
+                of_parents.append(self.get(of_parent))
+                of_parents.extend(of_parents[-1].of_parents)
+        return MiniObject(of_parents=of_parents, **kwargs)
 
     def new_func(self, body, *args):
         return MiniFunc(args=args, body=body)
@@ -668,7 +700,7 @@ class MiniEnvironment:
         return self.add_name(name, self.new_func(body, *args))
 
     def add_obj(self, name, **kwargs):
-        return self.add_name(name, self.new_obj(**kwargs))
+        return self.add_name(name, self.new_obj(name=name, **kwargs))
 
     def new_scope(self, new_scope_names=None):
         if new_scope_names is None:
