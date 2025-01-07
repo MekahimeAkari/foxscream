@@ -1,0 +1,39 @@
+start: typespecs
+typespecs: typespec*
+typespec: typeident (typeop typeident)*
+typeident: not? subident as?
+subident: name | array | dict | tuple | parens | fn
+name: NAME fields?
+array: OPEN_SQUARE typespec CLOSE_SQUARE
+dict: OPEN_SQUARE typespec COLON typespec CLOSE_SQUARE
+tuple: OPEN_PAREN typespec (COMMA typespec)+ CLOSE_PAREN
+parens: OPEN_PAREN typespec CLOSE_PAREN
+field: DOT NAME COLON typespec
+fields: OPEN_SQUARE typespec_or_field (COMMA typespec_or_field)* CLOSE_SQUARE
+typespec_or_field: typespec | field
+fn: FN OPEN_PAREN args? CLOSE_PAREN rettype?
+args: typespec (COMMA typespec)*
+rettype: ARROW typespec
+as: AS NAME
+typeop: and | or
+and: AND
+or: OR
+not: NOT
+
+NAME.-1: ("a".."z"|"A".."Z"|"_")("a".."z"|"0".."9"|"A".."Z"|"_")*
+OPEN_SQUARE: "["
+CLOSE_SQUARE: "]"
+OPEN_PAREN: "("
+CLOSE_PAREN: ")"
+DOT: "."
+COMMA: ","
+COLON: ":"
+ARROW: "->"
+FN: "fn"
+AS: "as"
+AND: "&" | "and"
+OR: "|" | "or"
+NOT: "!" | "not"
+
+WS: (" "|"\t"|"\r"|"\n")+
+%ignore WS
