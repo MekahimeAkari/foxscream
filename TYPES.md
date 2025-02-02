@@ -33,9 +33,11 @@ Types can also have fields:
     `list where .length: int`
 
 
-Both fields and contained types effect the overall type (dependent typing, woo!) so for a list:
+Both fields and contained types effect the overall type (refinement types, woo!) so for a list:
     `list of (any) by (int) where .length: int > 0` is a type
-    Probably need to restrict what can effect dependent typing, or it will get silly
 
-The boolean restriction of a type is itself a type, but the concrete type of the object matched is likely different. See:
-    `list of (any) by (int) where .length: int > 0` matches `[2, 3, 4]` which has concrete type `list of (int of int32) by (int) where .length: int of int32 == 3 and .empty: bool == false` or something like that
+Using refinement type matching in fuctions seems cool, like:
+    `fn append(in: list[any as inner_type, int as index_type] as in_array_t where array_length = .length: index_type > 0, appended: inner_type) -> in_array_t where .length: index_type = array_length + 1`
+    `fn append(in: list[any as inner_type, int as index_type] where array_length = .length: index_type > 0, appended: any as appended_type) -> list[inner_type + appended_type, index_type] where .length: index_type = array_length + 1`
+    `fn append(in: list[any, int as index_type] where .length: index_type == 0, appended: any as new_type) -> list[new_type, index_type] where .length: index_type = 1`
+Seems somewhat natural

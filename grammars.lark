@@ -1,0 +1,48 @@
+start: grammar
+grammar: _WS? GRAMMAR _WS? NAME _WS? OPEN_BRACE _WS? rule+ _WS? CLOSE_BRACE _END_STMT _WS?
+rule: NAME _WS? COLON _WS? ordered_terms _END_STMT _WS?
+?ordered_terms: unordered_terms _WS? action? _WS? more_ordered_terms*
+?more_ordered_terms: SLASH _WS? unordered_terms _WS? action? _WS? more_ordered_terms*
+?unordered_terms: term _WS? action? _WS? more_unordered_terms*
+?more_unordered_terms: BAR _WS? term _WS? action? _WS? more_unordered_terms*
+?term: element _WS? more_elements*
+?more_elements: element _WS? more_elements*
+?action: ARROW _WS? OPEN_BRACE _WS? action_elements+ _WS? CLOSE_BRACE
+?action_elements: action_subele _WS?
+?action_subele: NAME | PLUS | STAR | DASH | SLASH
+?element: prefix? _WS? subelement _WS? suffix?
+prefix: AND | BANG
+suffix: STAR | PLUS | QUESTION_MARK
+?subelement: group | concrete
+?group: OPEN_PAREN _WS? ordered_terms _WS? CLOSE_PAREN
+?concrete: name | string | sequence | regex | dot | empty
+name: NAME
+string: STRING
+sequence: SEQUENCE
+regex: REGEX
+dot: DOT
+empty: EMPTY
+
+GRAMMAR: "grammar"
+NAME.-9: ("a".."z"|"A".."Z"|"_")("a".."z"|"0".."9"|"A".."Z"|"_")*
+STRING: /([f]?r?|r[f])("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
+OPEN_BRACE: "{"
+CLOSE_BRACE: "}"
+BAR: "|"
+SLASH: "/"
+AND: "&"
+BANG: "!"
+STAR: "*"
+PLUS: "+"
+DASH: "-"
+DOT: "."
+COLON: ":"
+ARROW: "->"
+EMPTY: _WS
+QUESTION_MARK: "?"
+OPEN_PAREN: "("
+CLOSE_PAREN: ")"
+SEQUENCE: /\[(?!\[)(\\\][^\]])*?\]*/
+REGEX: /\/(?!\/)(\\\/|\\\\|[^\/])*?\/[imslux]*/
+_WS: (" "|"\t"|"\r"|"\n")+
+_END_STMT.1: (";" | "\n")
