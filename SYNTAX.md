@@ -12,14 +12,19 @@ Foxscream is also intended to be almost entirely expression-driven, so even thin
 ### Assignment
 
 Foxscream doesn't require any keywords on assignment, so something like:
+
 `a = 3`
+
 Is perfectly acceptable (and normal). By default, assignments represent binding a mutable variable.
 
 #### Assignment qualifiers
 
 Assignments may also accept qualifiers - these go before the variable name, and change the access or inheritability of a variable. An example is:
+
 `const a = 3`
+
 The current list of qualifiers (multiple may be used per assignment) are:
+
 ```text
 const: constant binding, interior mutability may still be allowed
 init: can only be assigned once then acts const (not sure if will keep)
@@ -29,7 +34,6 @@ fixed: derived classes cannot replace this member
 private: access from outside the class/object or derived objects is disallowed
 terminal: derived classes cannot override nor inherit this member (not sure if useful) but can replace
 final: derived classes cannot replace or override this member
-
 ```
 
 note: I cannot remember what I meant with the difference between overriding and replacing a member **FIXME**
@@ -37,12 +41,15 @@ note: I cannot remember what I meant with the difference between overriding and 
 #### Type specifiers
 
 Assigments also accept type specifiers with a colon after the variable name, like:
+
 `a: int = 3`
+
 The type system will be explained in [TYPES.md](TYPES.md) (also very **TODO**)
 
 #### Assignment operators
 
 The current assignment operators are:
+
 ```text
 =: normal
 :=: force-assign, bypasses overloading of the assignment operator (**TODO**: does this make sense?)
