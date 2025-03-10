@@ -1,0 +1,203 @@
+start: terminated_statement*
+?terminated_statement: qualified_statement _WS* endstmt _WS*
+?statement_group: qualified_statement (_WS* COMMA _WS* qualified_statement)*
+?qualified_statement: (qualifier _WS+)* statement
+statement: using
+//         | arith
+//         | fundecl
+//         | ifstmt
+//         | arith
+//         | returnstmt
+//         | deferstmt
+//         | classdec
+//         | namespace
+//         | forstmt
+//         | whilestmt
+//         | block
+?using: USING _WS* statement_group _WS* as_using?
+      | assign
+?as_using: AS _WS* statement_group
+?assign: statement_group _WS* assignop _WS* statement_group
+      | singlekwstmt
+?ifstmt: IF _WS* arith _WS* statement_group _WS* elifstmt* _WS* elsestmt?
+      | block
+?elifstmt: ELIF _WS* arith _WS* statement_group
+?elsestmt: ELSE _WS* statement_group
+?block: OPEN_BRACE _WS* (terminated_statement*|statement_group _WS*) _WS* CLOSE_BRACE
+     | arith
+?singlekwstmt: (RETURN|DEFER|BREAK|CONTINUE|YIELD) _WS* statement_group
+          | namespace
+?whilestmt: loop_label? _WS* WHILE _WS* arith _WS* statement_group
+?dowhilestmt: loop_label? _WS* DO _WS* statement_group _WS* WHILE _WS* arith
+?forstmt: loop_label? _WS* FOR _WS* arith _WS* statement_group
+?loop_label: LABEL _WS* NAME _WS* COLON
+?funcdecl: FN _WS* NAME? _WS* OPEN_PAREN _WS* statement_group? _WS* CLOSE_PAREN _WS* typeexpr? _WS* block
+        | controlstmt
+?controlstmt: ifstmt
+            | whilestmt
+            | dowhilestmt
+            | forstmt
+?typeexpr: COLON _WS* arith
+?namespace: NS _WS* NAME? _WS* block
+          | funcdecl
+          | classdecl
+?classdecl: CLASS _WS* NAME? _WS* class_parents? _WS* block
+?class_parents: COLON _WS* statement_group
+?arith: orexpr _WS* typeexpr?
+?orexpr: orexpr _WS* orop _WS* andexpr
+      | andexpr
+?andexpr: andexpr _WS* andop _WS* notexpr
+       | notexpr
+?notexpr: notop _WS* notexpr
+       | compareexpr
+?compareexpr: compareexpr _WS* compop _WS* bitor
+           | bitor
+?bitor: bitor _WS* bitorop _WS* bitxor
+     | bitxor
+?bitxor: bitxor _WS* bitxorop _WS* bitand
+      | bitand
+?bitand: bitand _WS* bitandop _WS* shiftexpr
+      | shiftexpr
+?shiftexpr: shiftexpr _WS* shiftop _WS* sum
+         | sum
+?sum: sum _WS* sumop _WS* term
+   | term
+?term: term _WS* termop _WS* factor
+    | factor
+?factor: factorop _WS* factor
+      | power
+?power: primary _WS* powerop _WS* power
+     | primary
+?primary: primary _WS* attrop _WS* NAME
+       | primary _WS* funcall
+       | primary _WS* slice
+       | atom
+?atom: NAME
+    | literal
+    | container_decl
+    | parens
+    | statement_group
+?literal: TRUE
+       | FALSE
+       | NULL
+       | SUPER
+       | SELF
+       | CLASS
+       | string
+       | number
+string: SQ_STRING | DQ_STRING
+?container_decl: OPEN_SQUARE _WS* array_statements? _WS* CLOSE_SQUARE
+?array_statements: array_statement (_WS* COMMA _WS* array_statement)*
+?array_statement: statement _WS* COLON _WS* statement | statement
+slice: OPEN_SQUARE _WS* statement _WS* CLOSE_SQUARE //fixme
+parens: OPEN_PAREN _WS* statement_group _WS* CLOSE_PAREN
+funcall: OPEN_PAREN _WS* statement_group? _WS* CLOSE_PAREN
+
+qualifier: CONST | STATIC | PRIVATE | NOINHERIT
+orop: DOUBLE_PIPE | OR
+andop: DOUBLE_AND | AND
+notop: BANG | NOT
+compop: DOUBLE_EQUALS | GT | GE | LT | LE | IS | is_not | IN | not_in
+is_not: IS _WS* notop
+not_in: notop _WS* IN
+assignop: EQUALS
+bitorop: PIPE
+bitandop: AMPERSAND
+bitxorop: CARET
+shiftop: LSHIFT | RSHIFT | LROT | RROT | LSHIFTAR | RSHIFTAR | LROTAR | RROTAR
+sumop: PLUS | MINUS
+termop: STAR | DIV | INTDIV | MOD
+factorop: PLUS | MINUS | TILDE
+powerop: DOUBLE_STAR
+attrop: DOT
+?endstmt: SEMICOLON | NEWLINE
+number: INT | FLOAT | HEX | BIN | OCT
+
+INT: "0"|"-"?("1".."9")("0".."9"|"_")*
+FLOAT: "-"?("0".."9"|"_")+"."("0".."9"|"_")*
+HEX: "0"("x"|"X")("a".."f"|"A".."F"|"0".."9"|"_")+
+OCT: "0"("o"|"O")("0".."7"|"_")+
+BIN: "0"("b"|"B")("0".."1"|"_")+
+LETTER: "a".."z" | "A".."Z"
+DIGIT: "0".."9"
+NAME.-9: ("_"|LETTER) ("_"|LETTER|DIGIT)*
+IF.1: "if"
+ELIF.1: "elif"
+ELSE.1: "else"
+RETURN: "return"
+DEFER: "defer"
+BREAK: "break"
+CONTINUE: "continue"
+WHILE: "while"
+YIELD: "yield"
+DO: "do"
+FOR: "for"
+FN: "fn"
+NS: "ns"
+CLASS: "class"
+PRIVATE: "private"
+NOINHERIT: "noinherit"
+STATIC: "static"
+SUPER: "super"
+SELF: "self"
+LABEL: "label"
+EQUALS: "="
+DOUBLE_PIPE: "||"
+OR: "or"
+DOUBLE_AND: "&&"
+BANG: "!"
+DOUBLE_EQUALS: "=="
+GT: ">"
+GE: ">="
+LT: "<"
+LE: "<="
+IS: "is"
+IN: "in"
+USING: "using"
+AS: "as"
+PIPE: "|"
+AMPERSAND: "&"
+CARET: "^"
+LSHIFT: "<<"
+RSHIFT: ">>"
+LROT: "^<<"
+RROT: ">>^"
+LSHIFTAR: "<<+"
+RSHIFTAR: "+>>"
+LROTAR: "^<<+"
+RROTAR: "+>>^"
+PLUS: "+"
+MINUS: "-"
+STAR: "*"
+DIV: "/"
+INTDIV: "//"
+MOD: "%"
+TILDE: "~"
+DOUBLE_STAR: "**"
+DOT: "."
+NOT: "not"
+AND: "and"
+TRUE: "true"
+FALSE: "false"
+NULL: "null"
+CONST: "const"
+COMMA: ","
+SINGLE_QUOTE: "'"
+DOUBLE_QUOTE: "\""
+_STRING_INNER: /.+?/s
+_ESCAPED_STRING_INNER: _STRING_INNER /(?<!\\)(\\\\)*?/s
+_FORMAT_PREFIXES: /[rf]+/
+DQ_STRING: _FORMAT_PREFIXES? "\"" _ESCAPED_STRING_INNER "\""
+SQ_STRING: _FORMAT_PREFIXES? "'" _ESCAPED_STRING_INNER "'"
+OPEN_SQUARE: "["
+CLOSE_SQUARE: "]"
+OPEN_PAREN: "("
+CLOSE_PAREN: ")"
+OPEN_BRACE: "{"
+CLOSE_BRACE: "}"
+COLON: ":"
+SEMICOLON: ";"
+NEWLINE: "\n" | "\r"
+
+_WS_INLINE: " " | "\t"
+_WS: (_WS_INLINE | NEWLINE)+
