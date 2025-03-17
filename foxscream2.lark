@@ -1,5 +1,5 @@
 start: terminated_statement*
-?terminated_statement: qualified_statement _WS* endstmt _WS*
+?terminated_statement: _WS* qualified_statement _WS_INLINE* endstmt+ _WS*
 ?statement_group: qualified_statement (_WS* COMMA _WS* qualified_statement)*
 ?qualified_statement: (qualifier _WS+)* statement
 statement: using
@@ -31,7 +31,7 @@ statement: using
 ?dowhilestmt: loop_label? _WS* DO _WS* statement_group _WS* WHILE _WS* arith
 ?forstmt: loop_label? _WS* FOR _WS* arith _WS* statement_group
 ?loop_label: LABEL _WS* NAME _WS* COLON
-?funcdecl: FN _WS* NAME? _WS* OPEN_PAREN _WS* statement_group? _WS* CLOSE_PAREN _WS* typeexpr? _WS* block
+?funcdecl: FN _WS* NAME? _WS* OPEN_PAREN _WS* statement_group? _WS* CLOSE_PAREN (_WS* typeexpr)? (_WS* block)?
         | controlstmt
 ?controlstmt: ifstmt
             | whilestmt
@@ -43,7 +43,7 @@ statement: using
           | classdecl
 ?classdecl: CLASS _WS* NAME? _WS* class_parents? _WS* block
 ?class_parents: COLON _WS* statement_group
-?arith: orexpr _WS* typeexpr?
+?arith: orexpr
 ?orexpr: orexpr _WS* orop _WS* andexpr
       | andexpr
 ?andexpr: andexpr _WS* andop _WS* notexpr
@@ -66,8 +66,9 @@ statement: using
     | factor
 ?factor: factorop _WS* factor
       | power
-?power: primary _WS* powerop _WS* power
-     | primary
+?power: primary_type _WS* powerop _WS* power
+     | primary_type
+?primary_type: primary (_WS* typeexpr)?
 ?primary: primary _WS* attrop _WS* NAME
        | primary _WS* funcall
        | primary _WS* slice
@@ -97,9 +98,9 @@ qualifier: CONST | STATIC | PRIVATE | NOINHERIT
 orop: DOUBLE_PIPE | OR
 andop: DOUBLE_AND | AND
 notop: BANG | NOT
-compop: DOUBLE_EQUALS | GT | GE | LT | LE | IS | is_not | IN | not_in
-is_not: IS _WS* notop
-not_in: notop _WS* IN
+compop: DOUBLE_EQUALS | GT | GE | LT | LE | is_op | in_op | HAS
+is_op: IS _WS* (NOT|OF)?
+in_op: NOT? _WS* IN
 assignop: EQUALS
 bitorop: PIPE
 bitandop: AMPERSAND
@@ -141,6 +142,8 @@ STATIC: "static"
 SUPER: "super"
 SELF: "self"
 LABEL: "label"
+HAS: "has"
+OF: "of"
 EQUALS: "="
 DOUBLE_PIPE: "||"
 OR: "or"
@@ -187,8 +190,8 @@ DOUBLE_QUOTE: "\""
 _STRING_INNER: /.+?/s
 _ESCAPED_STRING_INNER: _STRING_INNER /(?<!\\)(\\\\)*?/s
 _FORMAT_PREFIXES: /[rf]+/
-DQ_STRING: _FORMAT_PREFIXES? "\"" _ESCAPED_STRING_INNER "\""
-SQ_STRING: _FORMAT_PREFIXES? "'" _ESCAPED_STRING_INNER "'"
+DQ_STRING: _FORMAT_PREFIXES? DOUBLE_QUOTE _ESCAPED_STRING_INNER DOUBLE_QUOTE
+SQ_STRING: _FORMAT_PREFIXES? SINGLE_QUOTE _ESCAPED_STRING_INNER SINGLE_QUOTE
 OPEN_SQUARE: "["
 CLOSE_SQUARE: "]"
 OPEN_PAREN: "("
