@@ -27,16 +27,19 @@ The current list of qualifiers (multiple may be used per assignment) are:
 
 ```text
 const: constant binding, interior mutability may still be allowed
-init: can only be assigned once then acts const (not sure if will keep)
-classvar: makes the member be part of the class, rather than the constructed object (ugly?)
-noinherit: derived classes will not have this member (also... ugly?)
-fixed: derived classes cannot replace this member
-private: access from outside the class/object or derived objects is disallowed
-terminal: derived classes cannot override nor inherit this member (not sure if useful) but can replace
-final: derived classes cannot replace or override this member
-```
 
-note: I cannot remember what I meant with the difference between overriding and replacing a member **FIXME**
+classvar: makes the member be part of the class, rather than the constructed object (ugly?)
+
+noinherit: derived classes will not have this member (also... ugly?)
+
+fixed: derived classes cannot replace this member
+       effectively, fixes the type of this name binding
+
+private: access from outside the class/object or derived objects is disallowed
+
+final: derived classes cannot replace or override this member
+       no further overloading can occur, nor can this name be used for anything other than the type specified
+```
 
 #### Type specifiers
 
@@ -66,6 +69,25 @@ $=: copy-assign? not sure on this one for syntax **TODO**
 <<=: left-shift-assign
 >>=: right-shift-assign
 probably more **TODO**
+```
+
+### blocks
+
+being a curly-brace language, the classic compound statement is the braced block:
+
+```text
+{
+    some
+    statements
+    here; maybe more
+}
+
+```
+
+blocks can be labeled:
+
+```text
+
 ```
 
 ### if statements

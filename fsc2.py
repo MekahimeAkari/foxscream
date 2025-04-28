@@ -30,7 +30,7 @@ class cheesey
     chicken: b
     dineo: as = "friess"
     a
-    sdsds: asas{[sdhs] has fn (a, b):a and fn (b, a):b}
+    sdsds: asas[sdhs] has fn (a, b):a and fn (b, a):b
     sdsds2: asas[sdhs] has fn (a, b):a, fn (b, a):b = ccheese()
 }
 """).pretty())
