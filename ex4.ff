@@ -18,6 +18,7 @@ zz40 = 0
 if a != 1
     zz40 = 1
 else
-    zz40 = 2
+    zz40 = 2 # comment
 
 print(zz40)
+# comment
