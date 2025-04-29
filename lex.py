@@ -3,7 +3,6 @@
 import sys
 from enum import Enum, auto
 from dataclasses import dataclass
-import re
 import string
 
 class TokenType(Enum):
@@ -154,7 +153,6 @@ class Lexer:
         while self.cur < len(self.text):
             char = self.advance()
             if char in [' ', '\t']:
-                char = self.advance()
                 self.new_lexeme()
             elif char == '#':
                 while self.match(lambda x: x != '\n'):
@@ -280,10 +278,11 @@ class Lexer:
                 raise Exception("Unhandled char " + char)
         return self.token_list
 
-token_list = []
-source_text = ""
-with open(sys.argv[1]) as source_file:
-    source_text = source_file.read()
-lexer = Lexer()
-token_list = lexer.lex(source_text)
-print(token_list)
+if __name__ == "__main__":
+    token_list = []
+    source_text = ""
+    with open(sys.argv[1]) as source_file:
+        source_text = source_file.read()
+    lexer = Lexer()
+    token_list = lexer.lex(source_text)
+    print("\n".join([str(x) for x in token_list]))
