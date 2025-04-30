@@ -65,6 +65,8 @@ class TokenType(Enum):
     STATIC = auto()
     TRAIT = auto()
 
+    EOF = auto()
+
 @dataclass
 class Token:
     ttype: TokenType
@@ -98,6 +100,7 @@ RESERVED_WORDS = {
 class Lexer:
     def __init__(self):
         self.reset()
+        self.cur_token_pos = 0
 
     def reset(self):
         self.start = 0
@@ -276,7 +279,18 @@ class Lexer:
                 self.add_token(ttype)
             else:
                 raise Exception("Unhandled char " + char)
+        self.new_lexeme()
+        self.add_token(TokenType.EOF)
+        self.cur_token_pos = 0
         return self.token_list
+
+    def next_token(self):
+        ret_token = self.peek()
+        self.cur_token_pos = min(self.cur_token_pos + 1, len(self.token_list)-1)
+        return ret_token
+
+    def peek(self, num=0):
+        return self.token_list[self.cur_token_pos+num]
 
 if __name__ == "__main__":
     token_list = []
