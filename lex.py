@@ -73,6 +73,34 @@ class Token:
     lexeme: str
     col: int
     line: int
+    def is_primary(self):
+        return self.ttype == TokenType.NAME or self.ttype == TokenType.INT \
+                                            or self.ttype == TokenType.FLOAT \
+                                            or self.ttype == TokenType.STRING
+
+    def is_end(self):
+        return self.ttype == TokenType.NEWLINE or self.ttype == TokenType.SEMICOLON \
+                                               or self.ttype == TokenType.EOF
+
+    def is_class(self):
+        return self.ttype == TokenType.CLASS or self.ttype == TokenType.STATIC \
+                                             or self.ttype == TokenType.TRAIT
+
+    def is_assign(self):
+        return self.ttype == TokenType.EQUAL
+
+    def is_unop(self):
+        return self.ttype == TokenType.NOT
+
+    def is_singlekw(self):
+        return self.ttype == TokenType.RETURN or self.ttype == TokenType.BREAK \
+                                              or self.ttype == TokenType.CONTINUE \
+                                              or self.ttype == TokenType.LEAVE
+
+    def is_compop(self):
+        return self.ttype == TokenType.GT or self.ttype == TokenType.LT \
+                                          or self.ttype == TokenType.GE \
+                                          or self.ttype == TokenType.LE
 
 RESERVED_WORDS = {
     "and": TokenType.AND,
@@ -98,9 +126,11 @@ RESERVED_WORDS = {
 }
 
 class Lexer:
-    def __init__(self):
+    def __init__(self, source):
         self.reset()
         self.cur_token_pos = 0
+        self.text = source
+        self.backtrack_stack = []
 
     def reset(self):
         self.start = 0
@@ -151,8 +181,7 @@ class Lexer:
             self.advance(len(str(char)))
         return True
 
-    def lex(self, text):
-        self.text = text
+    def lex(self):
         while self.cur < len(self.text):
             char = self.advance()
             if char in [' ', '\t']:
@@ -290,13 +319,19 @@ class Lexer:
         return ret_token
 
     def peek(self, num=0):
-        return self.token_list[self.cur_token_pos+num]
+        return self.token_list[min(self.cur_token_pos+num, len(self.token_list)-1)]
+
+    def mark_backtrack(self):
+        self.backtrack_stack.append(self.cur_token_pos)
+
+    def backtrack(self):
+        self.cur_token_pos = self.backtrack_stack.pop()
 
 if __name__ == "__main__":
     token_list = []
     source_text = ""
     with open(sys.argv[1]) as source_file:
         source_text = source_file.read()
-    lexer = Lexer()
-    token_list = lexer.lex(source_text)
+    lexer = Lexer(source_text)
+    token_list = lexer.lex()
     print("\n".join([str(x) for x in token_list]))
