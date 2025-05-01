@@ -73,34 +73,43 @@ class Token:
     lexeme: str
     col: int
     line: int
+
+    def is_op(self, *ttypes):
+        for ttype in ttypes:
+            if self.ttype == ttype:
+                return True
+        return False
+
     def is_primary(self):
-        return self.ttype == TokenType.NAME or self.ttype == TokenType.INT \
-                                            or self.ttype == TokenType.FLOAT \
-                                            or self.ttype == TokenType.STRING
+        return self.is_op(TokenType.NAME, TokenType.INT, TokenType.FLOAT, TokenType.STRING)
 
     def is_end(self):
-        return self.ttype == TokenType.NEWLINE or self.ttype == TokenType.SEMICOLON \
-                                               or self.ttype == TokenType.EOF
+        return self.is_op(TokenType.NEWLINE, TokenType.SEMICOLON, TokenType.EOF)
 
     def is_class(self):
-        return self.ttype == TokenType.CLASS or self.ttype == TokenType.STATIC \
-                                             or self.ttype == TokenType.TRAIT
+        return self.is_op(TokenType.CLASS, TokenType.STATIC, TokenType.TRAIT)
 
     def is_assign(self):
-        return self.ttype == TokenType.EQUAL
+        return self.is_op(TokenType.EQUAL)
 
     def is_unop(self):
-        return self.ttype == TokenType.NOT
+        return self.is_op(TokenType.NOT)
 
     def is_singlekw(self):
-        return self.ttype == TokenType.RETURN or self.ttype == TokenType.BREAK \
-                                              or self.ttype == TokenType.CONTINUE \
-                                              or self.ttype == TokenType.LEAVE
+        return self.is_op(TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.LEAVE)
 
     def is_compop(self):
-        return self.ttype == TokenType.GT or self.ttype == TokenType.LT \
-                                          or self.ttype == TokenType.GE \
-                                          or self.ttype == TokenType.LE
+        return self.is_op(TokenType.GT, TokenType.LT, TokenType.GE, TokenType.LE, TokenType.EQUALEQUAL)
+
+    def is_sumop(self):
+        return self.is_op(TokenType.PLUS, TokenType.MINUS)
+
+    def is_termop(self):
+        return self.is_op(TokenType.STAR, TokenType.SLASH, TokenType.SLASHSLASH)
+
+    def is_factorop(self):
+        return self.is_op(TokenType.MINUS, TokenType.TILDE, TokenType.PLUS)
+
 
 RESERVED_WORDS = {
     "and": TokenType.AND,
@@ -313,13 +322,19 @@ class Lexer:
         self.cur_token_pos = 0
         return self.token_list
 
-    def next_token(self):
-        ret_token = self.peek()
-        self.cur_token_pos = min(self.cur_token_pos + 1, len(self.token_list)-1)
+    def next_token(self, num=1):
+        ret_token = self.peek(num-1)
+        self.cur_token_pos = min(self.cur_token_pos + num, len(self.token_list) - 1)
         return ret_token
 
     def peek(self, num=0):
-        return self.token_list[min(self.cur_token_pos+num, len(self.token_list)-1)]
+        return self.token_list[min(self.cur_token_pos + num, len(self.token_list) - 1)]
+
+    def token_check(self, *ttypes):
+        for ttype in ttypes:
+            if self.peek().ttype == ttype:
+                return True
+        return False
 
     def mark_backtrack(self):
         self.backtrack_stack.append(self.cur_token_pos)

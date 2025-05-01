@@ -27,18 +27,30 @@ class Parser:
         exprs = []
         while self.lexer.peek().ttype != TokenType.EOF:
             exprs.append(self.expr())
-            if not self.lexer.peek().is_end():
-                raise Exception("Expected end of expression, not " + str(self.lexer.peek()))
-            self.lexer.next_token()
-        return ExprList(self.exprs)
+            print(exprs[-1])
+        return ExprList(exprs)
 
     def expr(self):
-        return self.assignexpr()
+        expr = self.assignexpr()
+        if not self.lexer.peek().is_end():
+            raise Exception("Expected end of expression, not " + str(self.lexer.peek()))
+        self.lexer.next_token()
+        return expr
 
     def req_expr(self):
         expr = self.expr()
         if expr is None:
             raise Exception("Expected expression")
+        return expr
+
+    def match(self, *ttypes):
+        peek_distance = 0
+        while self.lexer.peek(peek_distance).ttype == TokenType.NEWLINE:
+            peek_distance += 1
+        if self.lexer.peek(peek_distance).ttype in ttypes:
+            self.lexer.next_token(peek_distance)
+            return True
+        return False
 
     def assignexpr(self):
         backtrack = False
@@ -46,9 +58,9 @@ class Parser:
             self.lexer.mark_backtrack()
             primary = self.primary()
             if primary:
-                assignop = self.assignop()
-                if assignop:
-                    expr = self.req_expr()
+                if self.match(TokenType.EQUAL):
+                    assignop = self.getop({TokenType.EQUAL: AssignOp.NORMAL})
+                    expr = self.singlekwexpr()
                     return AssignExpr(primary, assignop, expr)
                 else:
                     backtrack = True
@@ -87,16 +99,16 @@ class Parser:
             return self.ifexpr()
 
     def ifexpr(self):
-        if self.lexer.peek().ttype == TokenType.IF:
+        if self.match(TokenType.IF):
             self.lexer.next_token()
-            ifguard = self.req_expr()
+            ifguard = self.arith()
             ifexpr = self.req_expr()
             elifexprs = []
-            while self.lexer.peek().ttype == TokenType.ELIF:
+            while self.match(TokenType.ELIF):
                 self.lexer.next_token()
                 elifexprs.append(self.elifexpr())
             elseexpr = None
-            if self.lexer.peek().ttype == TokenType.ELSE:
+            if self.match(TokenType.ELSE):
                 self.lexer.next_token()
                 elseexpr = self.elseexpr()
             return IfExpr(ifguard, ifexpr, elifexprs, elseexpr)
@@ -104,7 +116,7 @@ class Parser:
             return self.fndec()
 
     def elifexpr(self):
-        guard = self.req_expr()
+        guard = self.arith()
         expr = self.req_expr()
         return ElifExpr(guard, expr)
 
@@ -141,8 +153,6 @@ class Parser:
             self.lexer.next_token()
             while self.lexer.peek().ttype != TokenType.CLOSE_BRACE:
                 exprs.append(self.expr())
-                if not self.lexer.next_token().is_end():
-                    raise Exception("Expected end of expression")
             self.lexer.next_token()
             return Block(label, ExprList(exprs))
         else:
@@ -153,106 +163,138 @@ class Parser:
 
     def orexpr(self):
         lhs = self.andexpr()
-        if self.lexer.peek().ttype == TokenType.OR:
-            op = self.orop()
-            rhs = self.req_expr()
+        if self.match(TokenType.OR):
+            op = self.getop({TokenType.OR: BinOp.OR})
+            rhs = self.orexpr()
             return BinExpr(lhs, op, rhs)
         return lhs
 
     def andexpr(self):
         lhs = self.notexpr()
-        if self.lexer.peek().ttype == TokenType.AND:
-            op = self.andop()
-            rhs = self.req_expr()
+        if self.match(TokenType.AND):
+            op = self.getop({TokenType.AND: BinOp.AND})
+            rhs = self.andexpr()
             return BinExpr(lhs, op, rhs)
         return lhs
 
     def notexpr(self):
-        if self.lexer.peek().ttype == TokenType.NOT:
-            op = self.notop()
-            expr = self.req_expr()
-            return UnOp(op, expr)
+        if self.lexer.match(TokenType.NOT):
+            op = self.getop({TokenType.NOT: UnOp.NOT})
+            expr = self.notexpr()
+            return UnExpr(op, expr)
         else:
             return self.compexpr()
 
-    def orop(self):
-        optok = self.lexer.next_token()
-        if optok.ttype == TokenType.OR:
-            return BinOp.OR
-        else:
-            raise Exception("Expected OR operator")
-
-    def andop(self):
-        optok = self.lexer.next_token()
-        if optok.ttype == TokenType.AND:
-            return BinOp.AND
-        else:
-            raise Exception("Expected AND operator")
-
-    def notop(self):
-        optok = self.lexer.next_token()
-        if optok.ttype == TokenType.NOT:
-            return BinOp.NOT
-        else:
-            raise Exception("Expected NOT operator")
+    def getop(self, opdict):
+        optok = self.lexer.next_token().ttype
+        if optok not in opdict.keys():
+            raise Exception("Expected operator from {}".format(opdict.keys()))
+        return opdict[optok]
 
     def compexpr(self):
         lhs = self.bitor()
-        if self.lexer.peek().is_compop():
-            op = self.compop()
-            rhs = self.req_expr()
+        if self.match(TokenType.GE, TokenType.LE, TokenType.GT, TokenType.LT, TokenType.EQUALEQUAL):
+            op = self.getop({TokenType.GE: BinOp.GE, TokenType.LE: BinOp.LE,
+                             TokenType.GT: BinOp.GT, TokenType.LT: BinOp.LT,
+                             TokenType.EQUALEQUAL: BinOp.EQ})
+            rhs = self.compexpr()
             return BinExpr(lhs, op, rhs)
-
-    def compop(self):
-        optok = self.lexer.next_token()
-        if optok.ttype == TokenType.GE:
-            return BinOp.GE
-        elif optok.ttype == TokenType.LE:
-            return BinOp.LE
-        elif optok.ttype == TokenType.GT:
-            return BinOp.GT
-        elif optok.ttype == TokenType.LT:
-            return BinOp.LT
-        else:
-            raise Exception("Expected comparison operator")
+        return lhs
 
     def bitor(self):
-        pass
+        lhs = self.bitxor()
+        if self.match(TokenType.PIPE):
+            op = self.getop({TokenType.PIPE: BinOp.BITOR})
+            rhs = self.bitor()
+            return BinExpr(lhs, op, rhs)
+        return lhs
 
     def bitxor(self):
-        pass
+        lhs = self.bitand()
+        if self.lexer.peek().ttype == TokenType.CARET:
+            op = self.getop({TokenType.CARET, BinOp.BITXOR})
+            rhs = self.bitxor()
+            return BinExpr(lhs, op, rhs)
+        return lhs
 
     def bitand(self):
-        pass
+        lhs = self.shiftexpr()
+        if self.match(TokenType.AMP):
+            op = self.getop({TokenType.AMP, BinOp.BITAND})
+            rhs = self.bitand()
+            return BinExpr(lhs, op, rhs)
+        return lhs
 
     def shiftexpr(self):
-        pass
+        lhs = self.sumexpr()
+        if self.match(TokenType.LSHIFT, TokenType.RSHIFT):
+            op = self.getop({TokenType.LSHIFT: BinOp.LSHIFT, TokenType.RSHIFT: BinOp.RSHIFT})
+            rhs = self.shiftexpr()
+            return BinExpr(lhs, op, rhs)
+        return lhs
 
-    def sum(self):
-        pass
+    def sumexpr(self):
+        lhs = self.termexpr()
+        if self.match(TokenType.PLUS, TokenType.MINUS):
+            op = self.getop({TokenType.PLUS: BinOp.ADD, TokenType.MINUS: BinOp.SUB})
+            rhs = self.sumexpr()
+            return BinExpr(lhs, op, rhs)
+        return lhs
 
-    def term(self):
-        pass
+    def termexpr(self):
+        lhs = self.factorexpr()
+        if self.match(TokenType.STAR, TokenType.SLASH, TokenType.SLASHSLASH, TokenType.PERCENT):
+            op = self.getop({TokenType.STAR: BinOp.MUL, TokenType.SLASH: BinOp.DIV,
+                             TokenType.SLASHSLASH: BinOp.INTDIV,
+                             TokenType.PERCENT: BinOp.MOD})
+            rhs = self.termexpr()
+            return BinExpr(lhs, op, rhs)
+        return lhs
 
-    def factor(self):
-        pass
+    def factorexpr(self):
+        if self.match(TokenType.MINUS, TokenType.PLUS, TokenType.TILDE):
+            op = self.getop({TokenType.MINUS: UnOp.NEG, TokenType.PLUS: UnOp.POS,
+                             TokenType.TILDE: UnOp.INV})
+            return UnExpr(op, self.powerexpr())
+        return self.powerexpr()
 
-
-    def power(self):
-        pass
-
+    def powerexpr(self):
+        lhs = self.primary()
+        if self.match(TokenType.STARSTAR):
+            op = self.getop({TokenType.STARSTART: BinOp.EXP})
+            rhs = self.powerexpr()
+            return BinExpr(lhs, op, rhs)
+        return lhs
 
     def primary(self):
-        pass
+        if self.match(TokenType.NAME):
+            return self.nameexpr()
+        elif self.match(TokenType.INT):
+            return self.litint()
+        elif self.match(TokenType.FLOAT):
+            return self.litfloat()
+        elif self.match(TokenType.STRING):
+            return self.litstring()
+        else:
+            raise Exception("Unexpected {}".format(self.lexer.peek()))
 
+    def nameexpr(self):
+        return Name(self.lexer.next_token().lexeme)
+
+    def litint(self):
+        return IntLiteral(int(self.lexer.next_token().lexeme))
+
+    def litfloat(self):
+        return FloatLiteral(float(self.lexer.next_token().lexeme))
+
+    def litstring(self):
+        return StringLiteral(self.lexer.next_token().lexeme)
 
     def fieldaccess(self):
         pass
 
-
     def slice(self):
         pass
-
 
     def fncall(self):
         pass
@@ -263,5 +305,4 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as source_file:
         source_text = source_file.read()
     parser = Parser(source_text)
-    expr_list = parser.parse()
-    print("\n".join([str(x) for x in expr_list]))
+    print(parser.parse())

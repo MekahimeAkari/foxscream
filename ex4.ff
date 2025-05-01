@@ -3,6 +3,11 @@ a = 2
 if b == 2
     zz4 = 5
 
+if a == 2
+    a = 1
+else
+    a = 3
+
 if a == 4
     { zz3 = 2; zz3=2; }
 elif a == 2

@@ -8,7 +8,7 @@ class SymbolTable:
 
 @dataclass
 class ASTNode:
-    environment: 'SymbolTable'
+    #environment: 'SymbolTable' | None = None
     def eval(self):
         raise Exception("eval() for {} not yet implemented".format(type(self).__name__))
 
@@ -26,11 +26,15 @@ class Expr(ASTNode):
     pass
 
 @dataclass
-class Name(ASTNode):
+class Primary(Expr):
+    pass
+
+@dataclass
+class Name(Primary):
     name: str
 
 @dataclass
-class Literal(ASTNode):
+class Literal(Primary):
     pass
 
 @dataclass
