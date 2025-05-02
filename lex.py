@@ -15,7 +15,7 @@ class TokenType(Enum):
     CLOSE_PAREN = auto()
     OPEN_BRACE = auto()
     CLOSE_BRACE = auto()
-    OPEN_SQAURE = auto()
+    OPEN_SQUARE = auto()
     CLOSE_SQUARE = auto()
     NAME = auto()
     INT = auto()
@@ -329,6 +329,9 @@ class Lexer:
 
     def peek(self, num=0):
         return self.token_list[min(self.cur_token_pos + num, len(self.token_list) - 1)]
+
+    def print_current(self):
+        print("<{}>, {}".format(self.peek(), [str(self.token_list[x]) for x in range(self.cur_token_pos+1, len(self.token_list))]))
 
     def token_check(self, *ttypes):
         for ttype in ttypes:

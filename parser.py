@@ -4,7 +4,8 @@ import sys
 from dataclasses import dataclass
 from enum import Enum, auto
 from lex import Lexer, TokenType
-from astree import SymbolTable, ExprList, Expr, Name
+import pprint
+from astree import SymbolTable, ExprList, Expr, Name, Primary
 from astree import Literal, StringLiteral, IntLiteral, FloatLiteral
 from astree import Call, Slice, Field, Accessor, AssignOp, AssignExpr
 from astree import BinOp, BinExpr, UnOp, UnExpr
@@ -27,14 +28,18 @@ class Parser:
         exprs = []
         while self.lexer.peek().ttype != TokenType.EOF:
             exprs.append(self.expr())
-            print(exprs[-1])
+            pprint.pp(exprs[-1])
+        print("")
         return ExprList(exprs)
 
+    def eat_terminators(self):
+        while self.lexer.peek().is_op(TokenType.NEWLINE, TokenType.SEMICOLON):
+            self.lexer.next_token()
+
     def expr(self):
+        self.eat_terminators()
         expr = self.assignexpr()
-        if not self.lexer.peek().is_end():
-            raise Exception("Expected end of expression, not " + str(self.lexer.peek()))
-        self.lexer.next_token()
+        self.eat_terminators()
         return expr
 
     def req_expr(self):
@@ -45,7 +50,7 @@ class Parser:
 
     def match(self, *ttypes):
         peek_distance = 0
-        while self.lexer.peek(peek_distance).ttype == TokenType.NEWLINE:
+        while self.lexer.peek(peek_distance).ttype in [TokenType.NEWLINE, TokenType.SEMICOLON]:
             peek_distance += 1
         if self.lexer.peek(peek_distance).ttype in ttypes:
             self.lexer.next_token(peek_distance)
@@ -193,10 +198,11 @@ class Parser:
 
     def compexpr(self):
         lhs = self.bitor()
-        if self.match(TokenType.GE, TokenType.LE, TokenType.GT, TokenType.LT, TokenType.EQUALEQUAL):
-            op = self.getop({TokenType.GE: BinOp.GE, TokenType.LE: BinOp.LE,
-                             TokenType.GT: BinOp.GT, TokenType.LT: BinOp.LT,
-                             TokenType.EQUALEQUAL: BinOp.EQ})
+        compops = {TokenType.GE: BinOp.GE, TokenType.LE: BinOp.LE,
+                   TokenType.GT: BinOp.GT, TokenType.LT: BinOp.LT,
+                   TokenType.EQUALEQUAL: BinOp.EQ, TokenType.BANGEQUAL: BinOp.NE}
+        if self.match(*compops.keys()):
+            op = self.getop(compops)
             rhs = self.compexpr()
             return BinExpr(lhs, op, rhs)
         return lhs
@@ -267,6 +273,11 @@ class Parser:
         return lhs
 
     def primary(self):
+        atom = self.atom()
+        access = self.access()
+        return Primary(atom, access)
+
+    def atom(self):
         if self.match(TokenType.NAME):
             return self.nameexpr()
         elif self.match(TokenType.INT):
@@ -290,13 +301,34 @@ class Parser:
     def litstring(self):
         return StringLiteral(self.lexer.next_token().lexeme)
 
+    def access(self):
+        root_accessor = Accessor(None, None)
+        cur_access = root_accessor
+        while self.lexer.peek().is_op(TokenType.OPEN_PAREN, TokenType.DOT, TokenType.OPEN_SQUARE):
+            if self.match(TokenType.OPEN_PAREN):
+                cur_access.access_type = self.fncall()
+            elif self.match(TokenType.DOT):
+                cur_access.access_type = self.field_access()
+            elif self.match(TokenType.OPEN_SQUARE):
+                cur_access.access_type = self.slice()
+            else:
+                break
+
+            cur_access.next_accessor = Accessor(None, None)
+            cur_access = cur_access.next_accessor
+
+        return root_accessor
+
     def fieldaccess(self):
+        self.lexer.next_token()
         pass
 
     def slice(self):
+        self.lexer.next_token()
         pass
 
     def fncall(self):
+        self.lexer.next_token()
         pass
 
 if __name__ == "__main__":
@@ -305,4 +337,4 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as source_file:
         source_text = source_file.read()
     parser = Parser(source_text)
-    print(parser.parse())
+    pprint.pp(parser.parse())
