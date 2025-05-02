@@ -329,7 +329,16 @@ class Parser:
 
     def fncall(self):
         self.lexer.next_token()
-        pass
+        args = []
+        while not self.match(TokenType.CLOSE_PAREN):
+            args.append(self.req_expr())
+            if self.match(TokenType.CLOSE_PAREN):
+                break
+            elif not self.match(TokenType.COMMA):
+                raise Exception("Expected , or (")
+            self.lexer.next_token()
+        self.lexer.next_token()
+        return Call(args)
 
 if __name__ == "__main__":
     expr_list = []

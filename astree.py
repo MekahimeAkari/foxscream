@@ -51,7 +51,7 @@ class FloatLiteral(Literal):
 
 @dataclass
 class Call(Expr):
-    pass
+    args: 'list'
 
 @dataclass
 class Slice(Expr):
