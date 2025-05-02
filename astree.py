@@ -11,6 +11,8 @@ class ASTNode:
     #environment: 'SymbolTable' | None = None
     def eval(self):
         raise Exception("eval() for {} not yet implemented".format(type(self).__name__))
+    def lprint(self):
+        raise Exception("lprint() for {} not yet implemented".format(type(self).__name__))
 
 @dataclass
 class ExprList(ASTNode):
@@ -20,6 +22,8 @@ class ExprList(ASTNode):
         for expression in self.expressions:
             last_ret = expression.eval()
         return last_ret
+    def lprint(self):
+        return "{}".format([x.lprint() for x in self.exprs])
 
 @dataclass
 class Expr(ASTNode):
@@ -32,6 +36,8 @@ class Primary(Expr):
 @dataclass
 class Name(Primary):
     name: str
+    def lprint(self):
+        return self.name
 
 @dataclass
 class Literal(Primary):
@@ -40,14 +46,20 @@ class Literal(Primary):
 @dataclass
 class StringLiteral(Literal):
     value: str
+    def lprint(self):
+        return '"{}"'.format(self.value)
 
 @dataclass
 class IntLiteral(Literal):
     value: int
+    def lprint(self):
+        return str(self.value)
 
 @dataclass
 class FloatLiteral(Literal):
     value: float
+    def lprint(self):
+        return str(self.value)
 
 @dataclass
 class Call(Expr):
@@ -75,6 +87,8 @@ class Accessor(Expr):
 class Primary(Expr):
     target: Name | Literal
     accessor: 'Accessor'
+    def lprint(self):
+        return self.target.lprint()
 
 class AssignOp(Enum):
     NORMAL = auto()
@@ -84,6 +98,8 @@ class AssignExpr(Expr):
     target: Primary
     operator: AssignOp
     expr: Expr
+    def lprint(self):
+        return "({} {} {})".format(self.operator, self.target.lprint(), self.expr.lprint())
 
 class BinOp(Enum):
     ADD = auto()
@@ -120,6 +136,8 @@ class BinExpr(Expr):
     lhs: Expr
     operator: BinOp
     rhs: Expr
+    def lprint(self):
+        return "({} {} {})".format(self.operator, self.lhs.lprint(), self.rhs.lprint())
 
 class UnOp(Enum):
     NEG = auto()
@@ -131,6 +149,9 @@ class UnOp(Enum):
 class UnExpr(Expr):
     operator: UnOp
     rhs: Expr
+
+    def lprint(self):
+        return "({} {})".format(self.operator, self.rhs.lprint())
 
 @dataclass
 class SingleKWExpr(Expr):

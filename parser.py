@@ -346,4 +346,4 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as source_file:
         source_text = source_file.read()
     parser = Parser(source_text)
-    pprint.pp(parser.parse())
+    print(parser.parse().lprint())
