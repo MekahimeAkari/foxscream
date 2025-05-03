@@ -190,6 +190,12 @@ class Lexer:
             self.advance(len(str(char)))
         return True
 
+    def cur_input(self, advance=0):
+        return self.text[self.cur+advance]
+
+    def end_of_source(self):
+        return self.cur >= len(self.text) - 1
+
     def lex(self):
         while self.cur < len(self.text):
             char = self.advance()
@@ -278,28 +284,29 @@ class Lexer:
             elif char.isdigit():
                 pop = False
                 ttype = TokenType.INT
-                if self.match_char("0"):
+                if char == "0":
                     if self.match_char("x") or self.match_char("X"):
                         while self.match(lambda x: x in string.hexdigits or x == "_"):
                             pass
                         pop = True
                     elif self.match_char("o") or self.match_char("O"):
-                        while self.match(lambda x: x in list(range(0, 8)) or x == "_"):
+                        while self.match(lambda x: x in [str(x) for x in list(range(0, 8))] or x == "_"):
                             pass
                         pop = True
                     elif self.match_char("b") or self.match_char("B"):
-                        while self.match(lambda x: x in list(range(0, 2)) or x == "_"):
+                        while self.match(lambda x: x in [str(x) for x in list(range(0, 2))] or x == "_"):
                             pass
                         pop = True
                 if not pop:
                     while self.match(lambda x: x in list(range(0, 10)) or x == "_"):
                         pass
-                    if self.match_char(".", False) and self.match(lambda x: x in list(range(0, 10)), False):
-                        self.advance()
-                        self.advance()
-                        while self.match(lambda x: x in list(range(0, 10)) or x == "_"):
-                            pass
-                        ttype = TokenType.FLOAT
+                    if not self.end_of_source() and self.cur_input() == ".":
+                        if self.cur_input(1).isdigit():
+                            self.advance()
+                            self.advance()
+                            while self.match(lambda x: x in list(range(0, 10)) or x == "_"):
+                                pass
+                            ttype = TokenType.FLOAT
                 self.add_token(ttype)
             elif char == "'" or char == '"':
                 start_quote = char

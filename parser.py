@@ -23,6 +23,12 @@ class Parser:
         self.lexer.lex()
         return self.file()
 
+    def getop(self, opdict):
+        optok = self.lexer.next_token().ttype
+        if optok not in opdict.keys():
+            raise Exception("Expected operator from {}".format(opdict.keys()))
+        return opdict[optok]
+
     def file(self):
         label = None
         exprs = []
@@ -168,18 +174,18 @@ class Parser:
 
     def orexpr(self):
         lhs = self.andexpr()
-        if self.match(TokenType.OR):
+        while self.match(TokenType.OR):
             op = self.getop({TokenType.OR: BinOp.OR})
-            rhs = self.orexpr()
-            return BinExpr(lhs, op, rhs)
+            rhs = self.andexpr()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def andexpr(self):
         lhs = self.notexpr()
-        if self.match(TokenType.AND):
+        while self.match(TokenType.AND):
             op = self.getop({TokenType.AND: BinOp.AND})
-            rhs = self.andexpr()
-            return BinExpr(lhs, op, rhs)
+            rhs = self.notexpr()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def notexpr(self):
@@ -190,86 +196,80 @@ class Parser:
         else:
             return self.compexpr()
 
-    def getop(self, opdict):
-        optok = self.lexer.next_token().ttype
-        if optok not in opdict.keys():
-            raise Exception("Expected operator from {}".format(opdict.keys()))
-        return opdict[optok]
-
     def compexpr(self):
         lhs = self.bitor()
         compops = {TokenType.GE: BinOp.GE, TokenType.LE: BinOp.LE,
                    TokenType.GT: BinOp.GT, TokenType.LT: BinOp.LT,
                    TokenType.EQUALEQUAL: BinOp.EQ, TokenType.BANGEQUAL: BinOp.NE}
-        if self.match(*compops.keys()):
+        while self.match(*compops.keys()):
             op = self.getop(compops)
-            rhs = self.compexpr()
-            return BinExpr(lhs, op, rhs)
+            rhs = self.bitor()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def bitor(self):
         lhs = self.bitxor()
-        if self.match(TokenType.PIPE):
+        while self.match(TokenType.PIPE):
             op = self.getop({TokenType.PIPE: BinOp.BITOR})
-            rhs = self.bitor()
-            return BinExpr(lhs, op, rhs)
+            rhs = self.bitxor()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def bitxor(self):
         lhs = self.bitand()
-        if self.lexer.peek().ttype == TokenType.CARET:
+        while self.lexer.peek().ttype == TokenType.CARET:
             op = self.getop({TokenType.CARET, BinOp.BITXOR})
-            rhs = self.bitxor()
-            return BinExpr(lhs, op, rhs)
+            rhs = self.bitand()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def bitand(self):
         lhs = self.shiftexpr()
-        if self.match(TokenType.AMP):
+        while self.match(TokenType.AMP):
             op = self.getop({TokenType.AMP, BinOp.BITAND})
-            rhs = self.bitand()
-            return BinExpr(lhs, op, rhs)
+            rhs = self.shiftexpr()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def shiftexpr(self):
         lhs = self.sumexpr()
-        if self.match(TokenType.LSHIFT, TokenType.RSHIFT):
+        while self.match(TokenType.LSHIFT, TokenType.RSHIFT):
             op = self.getop({TokenType.LSHIFT: BinOp.LSHIFT, TokenType.RSHIFT: BinOp.RSHIFT})
-            rhs = self.shiftexpr()
-            return BinExpr(lhs, op, rhs)
+            rhs = self.sumexpr()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def sumexpr(self):
         lhs = self.termexpr()
-        if self.match(TokenType.PLUS, TokenType.MINUS):
+        while self.match(TokenType.PLUS, TokenType.MINUS):
             op = self.getop({TokenType.PLUS: BinOp.ADD, TokenType.MINUS: BinOp.SUB})
-            rhs = self.sumexpr()
-            return BinExpr(lhs, op, rhs)
+            rhs = self.termexpr()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def termexpr(self):
         lhs = self.factorexpr()
-        if self.match(TokenType.STAR, TokenType.SLASH, TokenType.SLASHSLASH, TokenType.PERCENT):
+        while self.match(TokenType.STAR, TokenType.SLASH, TokenType.SLASHSLASH, TokenType.PERCENT):
             op = self.getop({TokenType.STAR: BinOp.MUL, TokenType.SLASH: BinOp.DIV,
                              TokenType.SLASHSLASH: BinOp.INTDIV,
                              TokenType.PERCENT: BinOp.MOD})
-            rhs = self.termexpr()
-            return BinExpr(lhs, op, rhs)
+            rhs = self.factorexpr()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def factorexpr(self):
         if self.match(TokenType.MINUS, TokenType.PLUS, TokenType.TILDE):
             op = self.getop({TokenType.MINUS: UnOp.NEG, TokenType.PLUS: UnOp.POS,
                              TokenType.TILDE: UnOp.INV})
-            return UnExpr(op, self.powerexpr())
+            return UnExpr(op, self.factorexpr())
         return self.powerexpr()
 
     def powerexpr(self):
         lhs = self.primary()
-        if self.match(TokenType.STARSTAR):
-            op = self.getop({TokenType.STARSTART: BinOp.EXP})
-            rhs = self.powerexpr()
-            return BinExpr(lhs, op, rhs)
+        while self.match(TokenType.STARSTAR):
+            op = self.getop({TokenType.STARSTAR: BinOp.EXP})
+            rhs = self.factorexpr()
+            lhs = BinExpr(lhs, op, rhs)
         return lhs
 
     def primary(self):
@@ -286,14 +286,25 @@ class Parser:
             return self.litfloat()
         elif self.match(TokenType.STRING):
             return self.litstring()
+        elif self.match(TokenType.OPEN_PAREN):
+            return self.parens()
         else:
             raise Exception("Unexpected {}".format(self.lexer.peek()))
+
+    def parens(self):
+        self.lexer.next_token()
+        expr = self.req_expr()
+        print(expr)
+        if not self.match(TokenType.CLOSE_PAREN):
+            raise Exception("Expected ) not {}".format(self.lexer.peek()))
+        self.lexer.next_token()
+        return expr
 
     def nameexpr(self):
         return Name(self.lexer.next_token().lexeme)
 
     def litint(self):
-        return IntLiteral(int(self.lexer.next_token().lexeme))
+        return IntLiteral(int(self.lexer.next_token().lexeme, 0))
 
     def litfloat(self):
         return FloatLiteral(float(self.lexer.next_token().lexeme))
@@ -308,7 +319,7 @@ class Parser:
             if self.match(TokenType.OPEN_PAREN):
                 cur_access.access_type = self.fncall()
             elif self.match(TokenType.DOT):
-                cur_access.access_type = self.field_access()
+                cur_access.access_type = self.fieldaccess()
             elif self.match(TokenType.OPEN_SQUARE):
                 cur_access.access_type = self.slice()
             else:
@@ -346,4 +357,6 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as source_file:
         source_text = source_file.read()
     parser = Parser(source_text)
-    print(parser.parse().lprint())
+    ast = parser.parse()
+    print(ast.lprint())
+    print(ast.eval())
