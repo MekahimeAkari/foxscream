@@ -55,15 +55,20 @@ class TokenType(Enum):
     ELIF = auto()
     ELSE = auto()
     WHILE = auto()
+    DO = auto()
     FOR = auto()
     FN = auto()
     RETURN = auto()
     BREAK = auto()
     CONTINUE = auto()
     LEAVE = auto()
+    TO = auto()
     CLASS = auto()
     STATIC = auto()
     TRAIT = auto()
+    TRUE = auto()
+    FALSE = auto()
+    NULL = auto()
 
     EOF = auto()
 
@@ -81,7 +86,7 @@ class Token:
         return False
 
     def is_primary(self):
-        return self.is_op(TokenType.NAME, TokenType.INT, TokenType.FLOAT, TokenType.STRING)
+        return self.is_op(TokenType.NAME, TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.TRUE, TokenType.FALSE, TokenType.NULL)
 
     def is_end(self):
         return self.is_op(TokenType.NEWLINE, TokenType.SEMICOLON, TokenType.EOF)
@@ -122,16 +127,21 @@ RESERVED_WORDS = {
     "if": TokenType.IF,
     "elif": TokenType.ELIF,
     "else": TokenType.ELSE,
+    "do": TokenType.DO,
     "while": TokenType.WHILE,
     "for": TokenType.FOR,
     "fn": TokenType.FN,
+    "to": TokenType.TO,
     "return": TokenType.RETURN,
     "break": TokenType.BREAK,
     "continue": TokenType.CONTINUE,
     "leave": TokenType.LEAVE,
     "class": TokenType.CLASS,
     "static": TokenType.STATIC,
-    "trait": TokenType.TRAIT
+    "trait": TokenType.TRAIT,
+    "true": TokenType.TRUE,
+    "false": TokenType.FALSE,
+    "null": TokenType.NULL
 }
 
 class Lexer:

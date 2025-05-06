@@ -123,11 +123,10 @@ print(ccc1 of classcheese2)
 print(childcheese of zorgon)
 #yoooo
 
-#*
-    multiline comment??
-    mabye?? #maybe?
-print("chees")
-*# print("chees")
-#*
-test
-*#
+##*
+#    multiline comment??
+#    mabye?? #maybe?
+#print("chees")
+#*# print("chees")
+#test
+#*#

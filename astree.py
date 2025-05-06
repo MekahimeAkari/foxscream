@@ -24,7 +24,7 @@ class ExprList(ASTNode):
             print(last_ret)
         return last_ret
     def lprint(self):
-        return "{}".format("\n".join([x.lprint() for x in self.exprs]))
+        return "({})".format("\n, ".join([x.lprint() for x in self.exprs]))
 
 @dataclass
 class Expr(ASTNode):
@@ -46,36 +46,38 @@ class Name(Primary):
 class Literal(Primary):
     pass
 
-@dataclass
-class StringLiteral(Literal):
-    value: str
     def lprint(self):
-        return '"{}"'.format(self.value)
+        return str(self.value)
 
     def eval(self, symbol_table=None):
         return self.value
+
+@dataclass
+class StringLiteral(Literal):
+    value: str
 
 @dataclass
 class IntLiteral(Literal):
     value: int
-    def lprint(self):
-        return str(self.value)
-
-    def eval(self, symbol_table=None):
-        return self.value
 
 @dataclass
 class FloatLiteral(Literal):
     value: float
-    def lprint(self):
-        return str(self.value)
 
-    def eval(self, symbol_table=None):
-        return self.value
+@dataclass
+class BoolLiteral(Literal):
+    value: bool
+
+@dataclass
+class NullLiteral(Literal):
+    value: None
 
 @dataclass
 class Call(Expr):
     args: 'list'
+
+    def lprint(self):
+        return "({})".format(",".join([x.lprint() for x in self.args]))
 
 @dataclass
 class Slice(Expr):
@@ -83,30 +85,33 @@ class Slice(Expr):
 
 @dataclass
 class Field(Expr):
-    pass
+    name: Name
+
+    def lprint(self):
+        return ".{}".format(self.name.lprint())
 
 @dataclass
 class Block(Expr):
     label: str
     exprs: ExprList
     def lprint(self):
-        return "{}".format(self.exprs.lprint())
-    def eval(self, symbol_table=None):
-        return self.exprs.eval()
+        return "{}{{{}}}".format("" if self.label is None else "{}:".format(self.label), self.exprs.lprint())
 
 @dataclass
 class Accessor(Expr):
     access_type: Call | Slice | Field
     next_accessor: 'Accessor'
 
+    def lprint(self):
+        return "{}{}".format(self.access_type.lprint(), "" if self.next_accessor is None else self.next_accessor.lprint())
+
 @dataclass
 class Primary(Expr):
     target: Name | Literal
     accessor: 'Accessor'
+
     def lprint(self):
-        return self.target.lprint()
-    def eval(self, symbol_table=None):
-        return self.target.eval()
+        return "{}{}".format(self.target.lprint(), "" if self.accessor is None else self.accessor.lprint())
 
 class AssignOp(Enum):
     NORMAL = auto()
@@ -238,22 +243,22 @@ class SingleKWExpr(Expr):
 @dataclass
 class ReturnExpr(SingleKWExpr):
     def lprint(self):
-        return "({} {})".format("return", self.expr.lprint())
+        return "({} {}{})".format("return", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
 
 @dataclass
 class BreakExpr(SingleKWExpr):
     def lprint(self):
-        return "({} {})".format("break", self.expr.lprint())
+        return "({} {}{})".format("break", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
 
 @dataclass
 class ContinueExpr(SingleKWExpr):
     def lprint(self):
-        return "({} {})".format("continue", self.expr.lprint())
+        return "({} {}{})".format("continue", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
 
 @dataclass
 class LeaveExpr(SingleKWExpr):
     def lprint(self):
-        return "({} {})".format("leave", self.expr.lprint())
+        return "({} {}{})".format("leave", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
 
 @dataclass
 class IfExpr(Expr):
@@ -283,8 +288,65 @@ class ElseExpr(Expr):
     def lprint(self):
         return "else {}".format(self.expr.lprint())
 
+class ClassType(Enum):
+    CLASS = auto()
+    STATIC = auto()
+    TRAIT = auto()
+
+@dataclass
+class ClassDecl(Expr):
+    class_type: ClassType
+    name: Name
+    parents: None
+    expr: Expr
+
+    def lprint(self):
+        class_type_str = None
+        if self.class_type == ClassType.CLASS:
+            class_type_str = "class"
+        elif self.class_type == ClassType.STATIC:
+            class_type_str = "static"
+        elif self.class_type == ClassType.TRAIT:
+            class_type_str = "trait"
+        return "({} {}{} {})".format(class_type_str,
+            "" if self.name is None else "{}".format(self.name.lprint()),
+            "" if self.parents is None else " of {}".format(",".join([x.lprint() for x in self.parents])),
+            "" if self.expr is None else self.expr.lprint())
+
 @dataclass
 class FnDecl(Expr):
     name: Name
     args: None
     expr: Expr
+
+    def lprint(self):
+        return "(fn {} ({}) {})".format("" if self.name is None else "{}".format(self.name.lprint()),
+            "" if self.args is None else "{}".format(",".join([x.lprint() for x in self.args])),
+            self.expr.lprint())
+
+
+@dataclass
+class ForExpr(Expr):
+    iter_name: Name
+    iter_expr: Expr
+    expr: Expr
+
+    def lprint(self):
+        return "(for {} in {} {})".format(self.iter_name.lprint(), self.iter_expr, self.expr.lprint())
+
+@dataclass
+class WhileExpr(Expr):
+    guard: Expr
+    expr: Expr
+
+    def lprint(self):
+        return "(while {} {})".format(self.guard.lprint(), self.expr.lprint())
+
+@dataclass
+class DoWhileExpr(Expr):
+    guard: Expr
+    expr: Expr
+
+    def lprint(self):
+        return "(do {} while {})".format(self.expr.lprint(), self.guard.lprint())
+

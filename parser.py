@@ -6,11 +6,12 @@ from enum import Enum, auto
 from lex import Lexer, TokenType
 import pprint
 from astree import SymbolTable, ExprList, Expr, Name, Primary
-from astree import Literal, StringLiteral, IntLiteral, FloatLiteral
+from astree import Literal, StringLiteral, IntLiteral, FloatLiteral, BoolLiteral, NullLiteral
 from astree import Call, Slice, Field, Accessor, AssignOp, AssignExpr
 from astree import BinOp, BinExpr, UnOp, UnExpr
 from astree import ReturnExpr, BreakExpr, LeaveExpr, ContinueExpr
-from astree import IfExpr, ElifExpr, ElseExpr, Block, FnDecl
+from astree import IfExpr, ElifExpr, ElseExpr, Block, FnDecl, WhileExpr, DoWhileExpr, ForExpr
+from astree import ClassType, ClassDecl
 
 class ParseNode:
     pass
@@ -30,7 +31,6 @@ class Parser:
         return opdict[optok]
 
     def file(self):
-        label = None
         exprs = []
         while self.lexer.peek().ttype != TokenType.EOF:
             exprs.append(self.expr())
@@ -63,23 +63,15 @@ class Parser:
             return True
         return False
 
-    def assignexpr(self):
-        backtrack = False
-        if self.lexer.peek().is_primary():
-            self.lexer.mark_backtrack()
-            primary = self.primary()
-            if primary:
-                if self.match(TokenType.EQUAL):
-                    assignop = self.getop({TokenType.EQUAL: AssignOp.NORMAL})
-                    expr = self.singlekwexpr()
-                    return AssignExpr(primary, assignop, expr)
-                else:
-                    backtrack = True
-            else:
-                backtrack = True
-        if backtrack:
-            self.lexer.backtrack()
-        return self.singlekwexpr()
+    def match_peek(self, *ttypes):
+        peek_distance = 0
+        for ttype in ttypes:
+            while self.lexer.peek(peek_distance).ttype in [TokenType.NEWLINE, TokenType.SEMICOLON]:
+                peek_distance += 1
+            if self.lexer.peek(peek_distance).ttype != ttype:
+                return False
+            peek_distance += 1
+        return True
 
     def assignop(self):
         if self.lexer.peek().is_assign():
@@ -89,42 +81,107 @@ class Parser:
         else:
             return None
 
-    def singlekwexpr(self):
-        if self.lexer.peek().is_singlekw():
-            singlekw = self.lexer.next_token()
-            singlekwexpr = None
-            target = None
-            if not self.lexer.peek().is_end():
-                singlekwexpr = self.expr()
-            if singlekw.ttype == TokenType.RETURN:
-                return ReturnExpr(target, singlekwexpr)
-            elif singlekw.ttype == TokenType.BREAK:
-                return BreakExpr(target, singlekwexpr)
-            elif singlekw.ttype == TokenType.CONTINUE:
-                return ContinueExpr(target, singlekwexpr)
-            elif singlekw.ttype == TokenType.LEAVE:
-                return LeaveExpr(target, singlekwexpr)
+    def assignexpr(self):
+        backtrack = False
+        if self.lexer.peek().is_primary():
+            self.lexer.mark_backtrack()
+            primary = self.primary()
+            if primary:
+                if self.match(TokenType.EQUAL):
+                    assignop = self.getop({TokenType.EQUAL: AssignOp.NORMAL})
+                    expr = self.req_expr()
+                    return AssignExpr(primary, assignop, expr)
+                else:
+                    backtrack = True
             else:
-                raise Exception("Unknown single keyword expression")
-        else:
+                backtrack = True
+        if backtrack:
+            self.lexer.backtrack()
+        return self.nonassignexpr()
+
+    def nonassignexpr(self):
+        if self.match(TokenType.RETURN, TokenType.BREAK, TokenType.LEAVE, TokenType.CONTINUE):
+            return self.singlekwexpr()
+        elif self.match(TokenType.IF):
             return self.ifexpr()
+        elif self.match(TokenType.WHILE):
+            return self.whileexpr()
+        elif self.match(TokenType.DO):
+            return self.dowhileexpr()
+        elif self.match(TokenType.FOR):
+            return self.forexpr()
+        elif self.match(TokenType.FN):
+            return self.fndecl()
+        elif self.match(TokenType.CLASS, TokenType.STATIC, TokenType.TRAIT):
+            return self.classdecl()
+        elif self.match(TokenType.OPEN_BRACE):
+            return self.block()
+        elif self.match_peek(TokenType.NAME, TokenType.COLON, TokenType.OPEN_BRACE):
+            return self.labeled_block()
+        elif self.match(TokenType.NAME, TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.TRUE, TokenType.FALSE, TokenType.NULL):
+            return self.arith()
+        else:
+            raise Exception("Unexpected token {}".format(self.lexer.peek()))
+
+    def singlekwexpr(self):
+        singlekw_const = {
+            TokenType.RETURN: ReturnExpr,
+            TokenType.BREAK: BreakExpr,
+            TokenType.CONTINUE: ContinueExpr,
+            TokenType.LEAVE: LeaveExpr
+        }
+        singlekw = singlekw_const[self.lexer.next_token().ttype]
+        target = None
+        expr = None
+        if not self.lexer.peek().is_end() and not self.match(TokenType.TO):
+            expr = self.req_expr()
+        if self.match(TokenType.TO):
+            self.lexer.next_token()
+            if not self.match(TokenType.NAME):
+                raise Exception("Expected name")
+            target = self.nameexpr()
+        return singlekw(target, expr)
+
+    def whileexpr(self):
+        self.lexer.next_token()
+        guard = self.arith()
+        expr = self.req_expr()
+        return WhileExpr(guard, expr)
+
+    def dowhileexpr(self):
+        self.lexer.next_token()
+        expr = self.req_expr()
+        if not self.match(TokenType.WHILE):
+            raise Exception("Expected while")
+        self.lexer.next_token()
+        guard = self.arith()
+        return DoWhileExpr(guard, expr)
+
+    def forexpr(self):
+        self.lexer.next_token()
+        if not self.match(TokenType.NAME):
+            raise Exception("Expected name")
+        iter_name = self.nameexpr()
+        if not self.match(TokenType.IN):
+            raise Exception("Expected in")
+        self.lexer.next_token()
+        iter_expr = self.req_expr()
+        expr = self.req_expr()
+        return ForExpr(iter_name, iter_expr, expr)
 
     def ifexpr(self):
-        if self.match(TokenType.IF):
+        self.lexer.next_token()
+        ifguard = self.arith()
+        ifexpr = self.req_expr()
+        elifexprs = []
+        while self.match(TokenType.ELIF):
             self.lexer.next_token()
-            ifguard = self.arith()
-            ifexpr = self.req_expr()
-            elifexprs = []
-            while self.match(TokenType.ELIF):
-                self.lexer.next_token()
-                elifexprs.append(self.elifexpr())
-            elseexpr = None
-            if self.match(TokenType.ELSE):
-                self.lexer.next_token()
-                elseexpr = self.elseexpr()
-            return IfExpr(ifguard, ifexpr, elifexprs, elseexpr)
-        else:
-            return self.fndec()
+            elifexprs.append(self.elifexpr())
+        elseexpr = None
+        if self.match(TokenType.ELSE):
+            self.lexer.next_token()
+            elseexpr = self.elseexpr()
+        return IfExpr(ifguard, ifexpr, elifexprs, elseexpr)
 
     def elifexpr(self):
         guard = self.arith()
@@ -135,39 +192,77 @@ class Parser:
         expr = self.req_expr()
         return ElseExpr(expr)
 
-    def fndec(self):
-        if self.lexer.peek().ttype == TokenType.FN:
+    def fndecl(self):
+        self.lexer.next_token()
+        name = None
+        if self.match(TokenType.NAME):
+            name = self.nameexpr()
+        if not self.match(TokenType.OPEN_PAREN):
+            raise Exception("Expected (")
+        self.lexer.next_token()
+        args = []
+        while not self.match(TokenType.CLOSE_PAREN):
+            args.append(self.req_expr())
+            if self.match(TokenType.CLOSE_PAREN):
+                break
+            elif not self.match(TokenType.COMMA):
+                raise Exception("Expected , or )")
             self.lexer.next_token()
-            name = None
-            if self.lexer.peek().ttype == TokenType.NAME:
-                name = self.name()
-            if self.lexer.next_token() != TokenType.OPEN_PAREN:
-                raise Exception("Expected (")
-            args = []
-            next_token = self.lexer.next_token()
-            while next_token != TokenType.CLOSE_PAREN:
-                args.append(self.fndeclarg())
-                next_token = self.lexer.next_token()
-                if next_token == TokenType.CLOSE_PAREN:
-                    break
-                elif next_token != TokenType.COMMA:
-                    raise Exception("Expected , or )")
-            fnexpr = self.req_expr()
-            return FnDecl(name, args, fnexpr)
+        self.lexer.next_token()
+        fnexpr = self.req_expr()
+        return FnDecl(name, args, fnexpr)
+
+    def classdecl(self):
+        classtype = None
+        if self.match(TokenType.CLASS):
+            classtype = ClassType.CLASS
+        elif self.match(TokenType.STATIC):
+            classtype = ClassType.STATIC
+        elif self.match(TokenType.TRAIT):
+            classtype = ClassType.TRAIT
         else:
-            return self.block()
+            raise Exception("Expected one of class, static, trait")
+        self.lexer.next_token()
+        name = None
+        if self.lexer.peek().ttype == TokenType.NAME:
+            name = self.nameexpr()
+        parents = None
+        if self.match(TokenType.OF):
+            parents = []
+            self.lexer.next_token()
+            parents.append(self.nameexpr())
+            while self.match(TokenType.COMMA):
+                self.lexer.next_token()
+                if not self.lexer.peek().ttype == TokenType.NAME:
+                    raise Exception("Expected name")
+                parents.append(self.nameexpr())
+        expr = None
+        if self.lexer.peek().ttype != TokenType.SEMICOLON:
+            expr = self.req_expr()
+        else:
+            self.lexer.next_token()
+        return ClassDecl(classtype, name, parents, expr)
+
+    def labeled_block(self):
+        if not self.match(TokenType.NAME):
+            raise Exception("Expected name")
+        name = self.nameexpr()
+        if not self.match(TokenType.COLON):
+            raise Exception("Expected :")
+        self.lexer.next_token()
+        if not self.match(TokenType.OPEN_BRACE):
+            raise Exception("Expected {")
+        block = self.block()
+        block.label = name
+        return block
 
     def block(self):
-        if self.lexer.peek().ttype == TokenType.OPEN_BRACE:
-            label = None
-            exprs = []
-            self.lexer.next_token()
-            while self.lexer.peek().ttype != TokenType.CLOSE_BRACE:
-                exprs.append(self.expr())
-            self.lexer.next_token()
-            return Block(label, ExprList(exprs))
-        else:
-            return self.arith()
+        exprs = []
+        self.lexer.next_token()
+        while self.lexer.peek().ttype != TokenType.CLOSE_BRACE:
+            exprs.append(self.expr())
+        self.lexer.next_token()
+        return Block(None, ExprList(exprs))
 
     def arith(self):
         return self.orexpr()
@@ -286,6 +381,10 @@ class Parser:
             return self.litfloat()
         elif self.match(TokenType.STRING):
             return self.litstring()
+        elif self.match(TokenType.TRUE, TokenType.FALSE):
+            return self.litbool()
+        elif self.match(TokenType.NULL):
+            return self.litnull()
         elif self.match(TokenType.OPEN_PAREN):
             return self.parens()
         else:
@@ -312,27 +411,36 @@ class Parser:
     def litstring(self):
         return StringLiteral(self.lexer.next_token().lexeme)
 
+    def litbool(self):
+        return BoolLiteral(self.lexer.next_token().lexeme == "true")
+
+    def litnull(self):
+        return NullLiteral(None)
+
     def access(self):
-        root_accessor = Accessor(None, None)
+        root_accessor = None
         cur_access = root_accessor
         while self.lexer.peek().is_op(TokenType.OPEN_PAREN, TokenType.DOT, TokenType.OPEN_SQUARE):
             if self.match(TokenType.OPEN_PAREN):
-                cur_access.access_type = self.fncall()
+                cur_access = Accessor(self.fncall(), None)
             elif self.match(TokenType.DOT):
-                cur_access.access_type = self.fieldaccess()
+                cur_access = Accessor(self.fieldaccess(), None)
             elif self.match(TokenType.OPEN_SQUARE):
-                cur_access.access_type = self.slice()
+                cur_access = Accessor(self.slice(), None)
             else:
                 break
 
-            cur_access.next_accessor = Accessor(None, None)
+            if root_accessor is None:
+                root_accessor = cur_access
             cur_access = cur_access.next_accessor
 
         return root_accessor
 
     def fieldaccess(self):
         self.lexer.next_token()
-        pass
+        if not self.match(TokenType.NAME):
+            raise Exception("Expected name")
+        return Field(self.nameexpr())
 
     def slice(self):
         self.lexer.next_token()
@@ -359,4 +467,3 @@ if __name__ == "__main__":
     parser = Parser(source_text)
     ast = parser.parse()
     print(ast.lprint())
-    print(ast.eval())

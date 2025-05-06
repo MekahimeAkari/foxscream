@@ -26,4 +26,36 @@ else
     zz40 = 2 # comment
 
 print(zz40)
+
+outer: {
+    for i in cheese
+    {
+        while zz40 == 0
+            print(zz40)
+
+        do print(zz40) while zz40 == 0
+
+        if i == 7
+            break zz3 to outer
+    }
+}
+
+class chicken;
+
+class milk;
+
+class cheese of milk {}
+
+class fries of cheese, chicken {}
+
+fn cheeseboi(a, b) return a + b
+
+fn cheesos() {
+    while a != 2
+    {
+        print(a)
+        a = a + 1
+    }
+}
+
 # comment
