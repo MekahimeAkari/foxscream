@@ -60,4 +60,13 @@ fn cheesos() {
     }
 }
 
+fn cheee() { a = 1; a = a + 1; yield a; }
+
+match cheee():
+{
+    1: { print(2); a = 2; }
+    2 or 4: print(1)
+    _: print("a")
+}
+
 # comment

@@ -9,9 +9,9 @@ from astree import SymbolTable, ExprList, Expr, Name, Primary
 from astree import Literal, StringLiteral, IntLiteral, FloatLiteral, BoolLiteral, NullLiteral
 from astree import Call, Slice, Field, Accessor, AssignOp, AssignExpr
 from astree import BinOp, BinExpr, UnOp, UnExpr
-from astree import ReturnExpr, BreakExpr, LeaveExpr, ContinueExpr, DeferExpr
+from astree import ReturnExpr, BreakExpr, LeaveExpr, ContinueExpr, DeferExpr, YieldExpr
 from astree import IfExpr, ElifExpr, ElseExpr, Block, FnDecl, WhileExpr, DoWhileExpr, ForExpr
-from astree import ClassType, ClassDecl
+from astree import ClassType, ClassDecl, MatchExpr, CaseExpr
 
 class ParseNode:
     pass
@@ -100,7 +100,7 @@ class Parser:
         return self.nonassignexpr()
 
     def nonassignexpr(self):
-        if self.match(TokenType.RETURN, TokenType.BREAK, TokenType.LEAVE, TokenType.CONTINUE, TokenType.DEFER):
+        if self.match(TokenType.RETURN, TokenType.BREAK, TokenType.LEAVE, TokenType.CONTINUE, TokenType.DEFER, TokenType.YIELD):
             return self.singlekwexpr()
         elif self.match(TokenType.IF):
             return self.ifexpr()
@@ -110,6 +110,8 @@ class Parser:
             return self.dowhileexpr()
         elif self.match(TokenType.FOR):
             return self.forexpr()
+        elif self.match(TokenType.MATCH):
+            return self.matchexpr()
         elif self.match(TokenType.FN):
             return self.fndecl()
         elif self.match(TokenType.CLASS, TokenType.STATIC, TokenType.TRAIT):
@@ -129,7 +131,8 @@ class Parser:
             TokenType.BREAK: BreakExpr,
             TokenType.CONTINUE: ContinueExpr,
             TokenType.LEAVE: LeaveExpr,
-            TokenType.DEFER: DeferExpr
+            TokenType.DEFER: DeferExpr,
+            TokenType.YIELD: YieldExpr
         }
         singlekw = singlekw_const[self.lexer.next_token().ttype]
         target = None
@@ -169,6 +172,32 @@ class Parser:
         iter_expr = self.req_expr()
         expr = self.req_expr()
         return ForExpr(iter_name, iter_expr, expr)
+
+    def matchexpr(self):
+        self.lexer.next_token()
+        expr = self.req_expr()
+        if not self.match(TokenType.COLON):
+            raise Exception("Expected :")
+        self.lexer.next_token()
+        if not self.match(TokenType.OPEN_BRACE):
+            raise Exception("Expected {")
+        self.lexer.next_token()
+        cases = []
+        while not self.match(TokenType.CLOSE_BRACE):
+            case_guard = None
+            default = False
+            if self.match(TokenType.UNDERSCORE):
+                default = True
+                self.lexer.next_token()
+            else:
+                case_guard = self.arith()
+            if not self.match(TokenType.COLON):
+                raise Exception("Expected :")
+            self.lexer.next_token()
+            case_expr = self.req_expr()
+            cases.append(CaseExpr(case_guard, case_expr, default))
+        self.lexer.next_token()
+        return MatchExpr(expr, cases)
 
     def ifexpr(self):
         self.lexer.next_token()

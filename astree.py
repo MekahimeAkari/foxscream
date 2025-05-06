@@ -266,6 +266,11 @@ class DeferExpr(SingleKWExpr):
         return "({} {}{})".format("defer", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
 
 @dataclass
+class YieldExpr(SingleKWExpr):
+    def lprint(self):
+        return "({} {}{})".format("yield", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
+
+@dataclass
 class IfExpr(Expr):
     ifguard: Expr
     ifexpr: Expr
@@ -329,6 +334,23 @@ class FnDecl(Expr):
             "" if self.args is None else "{}".format(",".join([x.lprint() for x in self.args])),
             self.expr.lprint())
 
+
+@dataclass
+class MatchExpr(Expr):
+    init_expr: Expr
+    cases: 'list'
+
+    def lprint(self):
+        return "(match {} {})".format(self.init_expr.lprint(), ", ".join([x.lprint() for x in self.cases]))
+
+@dataclass
+class CaseExpr(Expr):
+    match: Expr
+    expr: Expr
+    default: bool = False
+
+    def lprint(self):
+        return "case {}:{}".format("default" if self.default else self.match.lprint(), self.expr.lprint())
 
 @dataclass
 class ForExpr(Expr):

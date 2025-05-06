@@ -11,6 +11,7 @@ class TokenType(Enum):
     COLON = auto()
     DOT = auto()
     COMMA = auto()
+    UNDERSCORE = auto()
     OPEN_PAREN = auto()
     CLOSE_PAREN = auto()
     OPEN_BRACE = auto()
@@ -24,22 +25,35 @@ class TokenType(Enum):
     EQUAL = auto()
     EQUALEQUAL = auto()
     PLUS = auto()
+    PLUSEQUAL = auto()
     MINUS = auto()
+    MINUSEQUAL = auto()
     TILDE = auto()
+    TILDEEQUAL = auto()
     STAR = auto()
+    STAREQUAL = auto()
     STARSTAR = auto()
+    STARSTAREQUAL = auto()
     SLASH = auto()
+    SLASHEQUAL = auto()
     SLASHSLASH = auto()
+    SLASHSLASHEQUAL = auto()
     PERCENT = auto()
+    PERCENTEQUAL = auto()
     LSHIFT = auto()
+    LSHIFTEQUAL = auto()
     RSHIFT = auto()
+    RSHIFTEQUAL = auto()
     AMP = auto()
+    AMPEQUAL = auto()
     AMPAMP = auto()
     AND = auto()
     PIPE = auto()
+    PIPEEQUAL = auto()
     PIPEPIPE = auto()
     OR = auto()
     CARET = auto()
+    CARETEQUAL = auto()
     BANG = auto()
     BANGEQUAL = auto()
     GT = auto()
@@ -57,16 +71,24 @@ class TokenType(Enum):
     WHILE = auto()
     DO = auto()
     FOR = auto()
+    MATCH = auto()
     FN = auto()
     RETURN = auto()
     BREAK = auto()
     CONTINUE = auto()
     LEAVE = auto()
     DEFER = auto()
+    YIELD = auto()
     TO = auto()
     CLASS = auto()
     STATIC = auto()
     TRAIT = auto()
+    CLASSVAR = auto()
+    FIXED = auto()
+    PRIVATE = auto()
+    NOINHERIT = auto()
+    FINAL = auto()
+    TERMINAL = auto()
     TRUE = auto()
     FALSE = auto()
     NULL = auto()
@@ -131,6 +153,7 @@ RESERVED_WORDS = {
     "do": TokenType.DO,
     "while": TokenType.WHILE,
     "for": TokenType.FOR,
+    "match": TokenType.MATCH,
     "fn": TokenType.FN,
     "to": TokenType.TO,
     "return": TokenType.RETURN,
@@ -138,12 +161,20 @@ RESERVED_WORDS = {
     "continue": TokenType.CONTINUE,
     "leave": TokenType.LEAVE,
     "defer": TokenType.DEFER,
+    "yield": TokenType.YIELD,
     "class": TokenType.CLASS,
     "static": TokenType.STATIC,
     "trait": TokenType.TRAIT,
+    "classvar": TokenType.CLASSVAR,
+    "fixed": TokenType.FIXED,
+    "private": TokenType.PRIVATE,
+    "noinherit": TokenType.NOINHERIT,
+    "final": TokenType.FINAL,
+    "terminal": TokenType.TERMINAL,
     "true": TokenType.TRUE,
     "false": TokenType.FALSE,
-    "null": TokenType.NULL
+    "null": TokenType.NULL,
+    "_": TokenType.UNDERSCORE
 }
 
 class Lexer:
