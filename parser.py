@@ -9,7 +9,7 @@ from astree import SymbolTable, ExprList, Expr, Name, Primary
 from astree import Literal, StringLiteral, IntLiteral, FloatLiteral, BoolLiteral, NullLiteral
 from astree import Call, Slice, Field, Accessor, AssignOp, AssignExpr
 from astree import BinOp, BinExpr, UnOp, UnExpr
-from astree import ReturnExpr, BreakExpr, LeaveExpr, ContinueExpr
+from astree import ReturnExpr, BreakExpr, LeaveExpr, ContinueExpr, DeferExpr
 from astree import IfExpr, ElifExpr, ElseExpr, Block, FnDecl, WhileExpr, DoWhileExpr, ForExpr
 from astree import ClassType, ClassDecl
 
@@ -100,7 +100,7 @@ class Parser:
         return self.nonassignexpr()
 
     def nonassignexpr(self):
-        if self.match(TokenType.RETURN, TokenType.BREAK, TokenType.LEAVE, TokenType.CONTINUE):
+        if self.match(TokenType.RETURN, TokenType.BREAK, TokenType.LEAVE, TokenType.CONTINUE, TokenType.DEFER):
             return self.singlekwexpr()
         elif self.match(TokenType.IF):
             return self.ifexpr()
@@ -128,7 +128,8 @@ class Parser:
             TokenType.RETURN: ReturnExpr,
             TokenType.BREAK: BreakExpr,
             TokenType.CONTINUE: ContinueExpr,
-            TokenType.LEAVE: LeaveExpr
+            TokenType.LEAVE: LeaveExpr,
+            TokenType.DEFER: DeferExpr
         }
         singlekw = singlekw_const[self.lexer.next_token().ttype]
         target = None

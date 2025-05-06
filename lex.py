@@ -62,6 +62,7 @@ class TokenType(Enum):
     BREAK = auto()
     CONTINUE = auto()
     LEAVE = auto()
+    DEFER = auto()
     TO = auto()
     CLASS = auto()
     STATIC = auto()
@@ -136,6 +137,7 @@ RESERVED_WORDS = {
     "break": TokenType.BREAK,
     "continue": TokenType.CONTINUE,
     "leave": TokenType.LEAVE,
+    "defer": TokenType.DEFER,
     "class": TokenType.CLASS,
     "static": TokenType.STATIC,
     "trait": TokenType.TRAIT,

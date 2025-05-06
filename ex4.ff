@@ -37,6 +37,8 @@ outer: {
 
         if i == 7
             break zz3 to outer
+
+        defer a = 2
     }
 }
 

@@ -261,6 +261,11 @@ class LeaveExpr(SingleKWExpr):
         return "({} {}{})".format("leave", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
 
 @dataclass
+class DeferExpr(SingleKWExpr):
+    def lprint(self):
+        return "({} {}{})".format("defer", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
+
+@dataclass
 class IfExpr(Expr):
     ifguard: Expr
     ifexpr: Expr
