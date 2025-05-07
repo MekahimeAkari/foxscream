@@ -1,15 +1,24 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 
 @dataclass
 class SymbolTable:
-    names: 'dict'
-    parent: 'SymbolTable'
+    symbols: dict = field(default_factory=dict)
+    parent: 'SymbolTable' = None
+
+@dataclass
+class InterpObj:
+    name: str
+    value: None = None
+    fields: dict = field(default_factory=dict)
+    call: dict | None = None
+
+    def assign(self, other):
+        self.value = other.value
 
 @dataclass
 class ASTNode:
-    #environment: 'SymbolTable' | None = None
-    def eval(self):
+    def eval(self, symbol_table):
         raise Exception("eval() for {} not yet implemented".format(type(self).__name__))
     def lprint(self):
         raise Exception("lprint() for {} not yet implemented".format(type(self).__name__))
@@ -17,12 +26,12 @@ class ASTNode:
 @dataclass
 class ExprList(ASTNode):
     exprs: 'list'
-    def eval(self):
+    def eval(self, symbol_table):
         last_ret = None
         for expression in self.exprs:
-            last_ret = expression.eval()
-            print(last_ret)
+            last_ret = expression.eval(symbol_table)
         return last_ret
+
     def lprint(self):
         return "({})".format("\n, ".join([x.lprint() for x in self.exprs]))
 
@@ -37,9 +46,11 @@ class Primary(Expr):
 @dataclass
 class Name(Primary):
     name: str
+
     def lprint(self):
         return self.name
-    def eval(self):
+
+    def eval(self, symbol_table):
         return self.name
 
 @dataclass
@@ -49,7 +60,7 @@ class Literal(Primary):
     def lprint(self):
         return str(self.value)
 
-    def eval(self, symbol_table=None):
+    def eval(self, symbol_table):
         return self.value
 
 @dataclass
@@ -113,6 +124,22 @@ class Primary(Expr):
     def lprint(self):
         return "{}{}".format(self.target.lprint(), "" if self.accessor is None else self.accessor.lprint())
 
+    def eval(self, symbol_table, assign=False):
+        if isinstance(self.target, Literal):
+            if assign:
+                raise Exception("Cannot assign to Literal")
+            else:
+                return InterpObj("literal", value=self.target.eval(symbol_table))
+        name = self.target.eval(symbol_table)
+        obj = None
+        if name not in symbol_table.symbols:
+            if assign:
+                symbol_table.symbols[name] = InterpObj(name)
+            else:
+                raise Exception("No name {} known".format(name))
+        obj = symbol_table.symbols[name] # TODO: handle call/slice
+        return obj
+
 class AssignOp(Enum):
     NORMAL = auto()
 
@@ -121,13 +148,15 @@ class AssignExpr(Expr):
     target: Primary
     operator: AssignOp
     expr: Expr
+
     def lprint(self):
         return "({} {} {})".format(self.operator, self.target.lprint(), self.expr.lprint())
-    def eval(self, symbol_table=None):
-        if symbol_table is None:
-            symbol_table = {}
-        symbol_table[self.target.eval()] = self.expr.eval(symbol_table)
-        return symbol_table[self.target.eval()]
+
+    def eval(self, symbol_table):
+        obj = self.target.eval(symbol_table, assign=True)
+        obj.assign(self.expr.eval(symbol_table))
+        print(symbol_table)
+        return obj
 
 class BinOp(Enum):
     ADD = auto()
@@ -167,49 +196,51 @@ class BinExpr(Expr):
     def lprint(self):
         return "({} {} {})".format(self.operator, self.lhs.lprint(), self.rhs.lprint())
 
-    def eval(self, symbol_table=None):
+    def eval(self, symbol_table):
+        res = None
         if self.operator == BinOp.ADD:
-            return self.lhs.eval() + self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value + self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.SUB:
-            return self.lhs.eval() - self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value - self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.EXP:
-            return self.lhs.eval() ** self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value ** self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.MUL:
-            return self.lhs.eval() * self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value * self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.DIV:
-            return self.lhs.eval() / self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value / self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.INTDIV:
-            return self.lhs.eval() // self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value // self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.MOD:
-            return self.lhs.eval() % self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value % self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.LSHIFT:
-            return self.lhs.eval() << self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value << self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.RSHIFT:
-            return self.lhs.eval() >> self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value >> self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.BITAND:
-            return self.lhs.eval() & self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value & self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.BITXOR:
-            return self.lhs.eval() ^ self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value ^ self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.BITOR:
-            return self.lhs.eval() | self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value | self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.EQ:
-            return self.lhs.eval() == self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value == self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.NE:
-            return self.lhs.eval() != self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value != self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.GT:
-            return self.lhs.eval() > self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value > self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.LT:
-            return self.lhs.eval() < self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value < self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.GE:
-            return self.lhs.eval() >= self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value >= self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.LE:
-            return self.lhs.eval() <= self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value <= self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.AND:
-            return self.lhs.eval() and self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value and self.rhs.eval(symbol_table).value
         elif self.operator == BinOp.OR:
-            return self.lhs.eval() or self.rhs.eval()
+            res = self.lhs.eval(symbol_table).value or self.rhs.eval(symbol_table).value
         else:
             raise Exception("unimplemented")
+        return InterpObj("intermediate", value=res)
 
 class UnOp(Enum):
     NEG = auto()
@@ -226,14 +257,18 @@ class UnExpr(Expr):
         return "({} {})".format(self.operator, self.rhs.lprint())
 
     def eval(self, symbol_table=None):
+        res = None
         if self.operator == UnOp.NEG:
-            return -self.rhs.eval()
+            res = -self.rhs.eval().value
         elif self.operator == UnOp.POS:
-            return +self.rhs.eval()
+            res = +self.rhs.eval().value
         elif self.operartor == UnOp.INV:
-            return ~self.rhs.eval()
+            res = ~self.rhs.eval().value
         elif self.operator == UnOp.NOT:
-            return not self.rhs.eval()
+            res = not self.rhs.eval().value
+        else:
+            raise Exception("unimplemented")
+        return InterpObj("intermediate", value=res)
 
 @dataclass
 class SingleKWExpr(Expr):

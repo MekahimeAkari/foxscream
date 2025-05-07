@@ -13,9 +13,6 @@ from astree import ReturnExpr, BreakExpr, LeaveExpr, ContinueExpr, DeferExpr, Yi
 from astree import IfExpr, ElifExpr, ElseExpr, Block, FnDecl, WhileExpr, DoWhileExpr, ForExpr
 from astree import ClassType, ClassDecl, MatchExpr, CaseExpr
 
-class ParseNode:
-    pass
-
 class Parser:
     def __init__(self, source):
         self.lexer = Lexer(source)
