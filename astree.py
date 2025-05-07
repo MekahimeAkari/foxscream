@@ -5,9 +5,10 @@ from enum import Enum, auto
 class SymbolTable:
     symbols: dict = field(default_factory=dict)
     parent: 'SymbolTable' = None
+    scope_label: str = None
 
-    def new(self):
-        return SymbolTable(parent=self)
+    def new(self, symbols=None, scope_label=None):
+        return SymbolTable(parent=self, symbols={} if symbols is None else symbols, scope_label=scope_label)
 
     def find(self, name):
         if name in self.symbols:
@@ -89,6 +90,7 @@ class Literal(Primary):
         return str(self.value)
 
     def eval(self, symbol_table):
+        print(self.value)
         return self.value
 
 @dataclass
@@ -110,6 +112,14 @@ class BoolLiteral(Literal):
 @dataclass
 class NullLiteral(Literal):
     value: None
+
+@dataclass
+class ArrayLiteral(Literal):
+    value: list
+
+@dataclass
+class DictLiteral(Literal):
+    value: dict
 
 @dataclass
 class Call(Expr):
@@ -142,7 +152,7 @@ class Block(Expr):
         return "{}{{{}}}".format("" if self.label is None else "{}:".format(self.label), self.exprs.lprint())
 
     def eval(self, symbol_table):
-        return self.exprs.eval(symbol_table)
+        return self.exprs.eval(symbol_table.new(scope_label=self.label))
 
 @dataclass
 class Accessor(Expr):

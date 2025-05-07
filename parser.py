@@ -6,7 +6,7 @@ from enum import Enum, auto
 from lex import Lexer, TokenType
 import pprint
 from astree import SymbolTable, ExprList, Expr, Name, Primary
-from astree import Literal, StringLiteral, IntLiteral, FloatLiteral, BoolLiteral, NullLiteral
+from astree import Literal, StringLiteral, IntLiteral, FloatLiteral, BoolLiteral, NullLiteral, ArrayLiteral, DictLiteral
 from astree import Call, Slice, Field, Accessor, AssignOp, AssignExpr
 from astree import BinOp, BinExpr, UnOp, UnExpr
 from astree import ReturnExpr, BreakExpr, LeaveExpr, ContinueExpr, DeferExpr, YieldExpr
@@ -117,7 +117,7 @@ class Parser:
             return self.block()
         elif self.match_peek(TokenType.NAME, TokenType.COLON, TokenType.OPEN_BRACE):
             return self.labeled_block()
-        elif self.match(TokenType.NAME, TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.TRUE, TokenType.FALSE, TokenType.NULL):
+        elif self.match(TokenType.NAME, TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.TRUE, TokenType.FALSE, TokenType.NULL, TokenType.OPEN_SQUARE):
             return self.arith()
         else:
             raise Exception("Unexpected token {}".format(self.lexer.peek()))
@@ -414,6 +414,8 @@ class Parser:
             return self.litnull()
         elif self.match(TokenType.OPEN_PAREN):
             return self.parens()
+        elif self.match(TokenType.OPEN_SQUARE):
+            return self.litarray()
         else:
             raise Exception("Unexpected {}".format(self.lexer.peek()))
 
@@ -443,6 +445,38 @@ class Parser:
 
     def litnull(self):
         return NullLiteral(None)
+
+    def litarray(self):
+        arrayconst = ArrayLiteral
+        is_dict = False
+        self.lexer.next_token()
+        const_values = []
+        if not self.match(TokenType.CLOSE_SQUARE):
+            if self.match(TokenType.COLON):
+                self.lexer.next_token()
+                if not self.match(TokenType.CLOSE_SQUARE):
+                    raise Exception("Expected ]")
+                arrayconst = DictLiteral
+                const_values = {}
+            else:
+                const_values.append(self.req_expr())
+                if self.match(TokenType.COLON):
+                    arrayconst = DictLiteral
+                    self.lexer.next_token()
+                    const_values = {const_values[0]: self.req_expr()}
+                while not self.match(TokenType.CLOSE_SQUARE):
+                    if self.match(TokenType.COMMA):
+                        self.lexer.next_token()
+                    key_or_value = self.req_expr()
+                    if is_dict:
+                        if not self.match(TokenType.COLON):
+                            raise Exception("Expected :")
+                        self.lexer.next_token()
+                        const_values[key_or_value] = self.req_expr()
+                    else:
+                        const_values.append(key_or_value)
+        self.lexer.next_token()
+        return arrayconst(const_values)
 
     def access(self):
         root_accessor = None
