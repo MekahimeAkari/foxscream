@@ -90,7 +90,6 @@ class Literal(Primary):
         return str(self.value)
 
     def eval(self, symbol_table):
-        print(self.value)
         return self.value
 
 @dataclass
@@ -181,7 +180,7 @@ class Primary(Expr):
                 return InterpObj("literal", value=self.target.eval(symbol_table))
         name = self.target.eval(symbol_table)
         obj = None
-        if name not in symbol_table.symbols:
+        if symbol_table.find(name) is None:
             if assign:
                 symbol_table.bind(name, InterpObj(name))
             else:
@@ -467,6 +466,18 @@ class ForExpr(Expr):
     def lprint(self):
         return "(for {} in {} {})".format(self.iter_name.lprint(), self.iter_expr, self.expr.lprint())
 
+    def eval(self, symbol_table):
+        iter_pos = 0
+        break_loop = False
+        iter_arr = self.iter_expr.eval(symbol_table).value
+        iter_name = self.iter_name.eval(symbol_table)
+        last_expr = None
+        while (iter_pos < len(iter_arr) and not break_loop):
+            iter_val = iter_arr[iter_pos].eval(symbol_table)
+            last_expr = self.expr.eval(symbol_table.new(symbols={iter_name: InterpObj(iter_name, value=iter_val)}))
+            iter_pos += 1
+        return last_expr
+
 @dataclass
 class WhileExpr(Expr):
     guard: Expr
@@ -475,6 +486,12 @@ class WhileExpr(Expr):
     def lprint(self):
         return "(while {} {})".format(self.guard.lprint(), self.expr.lprint())
 
+    def eval(self, symbol_table):
+        last_expr = None
+        while self.guard.eval(symbol_table) is True:
+            last_expr = self.expr.eval(symbol_table.new())
+        return last_expr
+
 @dataclass
 class DoWhileExpr(Expr):
     guard: Expr
@@ -482,4 +499,11 @@ class DoWhileExpr(Expr):
 
     def lprint(self):
         return "(do {} while {})".format(self.expr.lprint(), self.guard.lprint())
+
+    def eval(self, symbol_table):
+        last_expr = self.expr.eval(symbol_table.new())
+        while self.guard.eval(symbol_table) is True:
+            last_expr = self.expr.eval(symbol_table.new())
+        return last_expr
+
 
