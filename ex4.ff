@@ -27,6 +27,8 @@ else
 
 print(zz40)
 
+cheese = [1, 2, 3]
+
 outer: {
     for i in cheese
     {

@@ -3,7 +3,7 @@
 import sys
 import pprint
 from parser import Parser
-from astree import SymbolTable
+from astree import SymbolTable, InterpObj
 from dataclasses import dataclass, field
 
 class Interpreter:
@@ -11,6 +11,7 @@ class Interpreter:
         self.ast = Parser(source).parse()
         if symbol_table is None:
             symbol_table = SymbolTable()
+            symbol_table.symbols["print"] = InterpObj("print", func=print)
         self.symbol_table = symbol_table
 
     def eval(self):

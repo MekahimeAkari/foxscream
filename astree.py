@@ -6,15 +6,22 @@ class SymbolTable:
     symbols: dict = field(default_factory=dict)
     parent: 'SymbolTable' = None
 
-@dataclass
-class InterpObj:
-    name: str
-    value: None = None
-    fields: dict = field(default_factory=dict)
-    call: dict | None = None
+    def new(self):
+        return SymbolTable(parent=self)
 
-    def assign(self, other):
-        self.value = other.value
+    def find(self, name):
+        if name in self.symbols:
+            return self.symbols[name]
+        elif self.parent is not None:
+            return self.parent.find(name)
+        return None
+
+    def bind(self, name, obj):
+        exist_obj = self.find(name)
+        if exist_obj:
+            exist_obj.assign(obj)
+        else:
+            self.symbols[name] = obj
 
 @dataclass
 class ASTNode:
@@ -22,6 +29,27 @@ class ASTNode:
         raise Exception("eval() for {} not yet implemented".format(type(self).__name__))
     def lprint(self):
         raise Exception("lprint() for {} not yet implemented".format(type(self).__name__))
+
+@dataclass
+class InterpObj:
+    name: str
+    value: None = None
+    fields: dict = field(default_factory=dict)
+    func: None = None
+
+    def assign(self, other):
+        self.value = other.value
+
+    def call(self, *args):
+        if self.func is None:
+            raise Exception("Cannot call {}".format(self.name))
+        elif isinstance(self.func, ASTNode):
+            raise Exception("You need to add function signatures, nerd")
+        else:
+            return self.func(*args)
+
+    def __str__(self):
+        return str(self.value)
 
 @dataclass
 class ExprList(ASTNode):
@@ -90,6 +118,10 @@ class Call(Expr):
     def lprint(self):
         return "({})".format(",".join([x.lprint() for x in self.args]))
 
+    def eval(self, symbol_table, parent_obj):
+        call_args = [x.eval(symbol_table) for x in self.args]
+        return parent_obj.call(*call_args)
+
 @dataclass
 class Slice(Expr):
     pass
@@ -105,8 +137,12 @@ class Field(Expr):
 class Block(Expr):
     label: str
     exprs: ExprList
+
     def lprint(self):
         return "{}{{{}}}".format("" if self.label is None else "{}:".format(self.label), self.exprs.lprint())
+
+    def eval(self, symbol_table):
+        return self.exprs.eval(symbol_table)
 
 @dataclass
 class Accessor(Expr):
@@ -115,6 +151,9 @@ class Accessor(Expr):
 
     def lprint(self):
         return "{}{}".format(self.access_type.lprint(), "" if self.next_accessor is None else self.next_accessor.lprint())
+
+    def eval(self, symbol_table, parent_obj):
+        return self.access_type.eval(symbol_table, parent_obj)
 
 @dataclass
 class Primary(Expr):
@@ -134,10 +173,12 @@ class Primary(Expr):
         obj = None
         if name not in symbol_table.symbols:
             if assign:
-                symbol_table.symbols[name] = InterpObj(name)
+                symbol_table.bind(name, InterpObj(name))
             else:
                 raise Exception("No name {} known".format(name))
-        obj = symbol_table.symbols[name] # TODO: handle call/slice
+        obj = symbol_table.find(name) # TODO: handle call/slice
+        if self.accessor:
+            obj = self.accessor.eval(symbol_table, obj)
         return obj
 
 class AssignOp(Enum):
@@ -311,6 +352,7 @@ class IfExpr(Expr):
     ifexpr: Expr
     elifexprs: None
     elseexpr: None
+
     def lprint(self):
         elif_lprint = ""
         if self.elifexprs:
@@ -320,18 +362,37 @@ class IfExpr(Expr):
             else_lprint = " " + self.elseexpr.lprint()
         return "(if {} {}{}{})".format(self.ifguard.lprint(), self.ifexpr.lprint(), elif_lprint, else_lprint)
 
+    def eval(self, symbol_table):
+        if self.ifguard.eval(symbol_table) is True:
+            return self.ifexpr.eval(symbol_table.new())
+        if self.elifexprs is not None:
+            for elifexpr in self.elifexprs:
+                elif_res = elifexpr.eval(symbol_table)
+                if elif_res is not None:
+                    return elif_res
+        if self.elseexpr is not None:
+            return self.elseexpr.eval(symbol_table)
+
 @dataclass
 class ElifExpr(Expr):
     guard: Expr
     expr: Expr
+
     def lprint(self):
         return "elif {} {}".format(self.guard.lprint(), self.expr.lprint())
+
+    def eval(self, symbol_table):
+        return None if self.guard.eval(symbol_table) is not True else self.expr.eval(symbol_table.new())
 
 @dataclass
 class ElseExpr(Expr):
     expr: Expr
+
     def lprint(self):
         return "else {}".format(self.expr.lprint())
+
+    def eval(self, symbol_table):
+        return self.expr.eval(symbol_table.new())
 
 class ClassType(Enum):
     CLASS = auto()
