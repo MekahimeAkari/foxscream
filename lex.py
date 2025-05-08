@@ -69,8 +69,10 @@ class TokenType(Enum):
     ELIF = auto()
     ELSE = auto()
     WHILE = auto()
+    ELWHILE = auto()
     DO = auto()
     FOR = auto()
+    ELFOR = auto()
     MATCH = auto()
     FN = auto()
     RETURN = auto()
@@ -83,6 +85,7 @@ class TokenType(Enum):
     CLASS = auto()
     STATIC = auto()
     TRAIT = auto()
+    SELF = auto()
     CLASSVAR = auto()
     FIXED = auto()
     PRIVATE = auto()
@@ -152,7 +155,9 @@ RESERVED_WORDS = {
     "else": TokenType.ELSE,
     "do": TokenType.DO,
     "while": TokenType.WHILE,
+    "elwhile": TokenType.ELWHILE,
     "for": TokenType.FOR,
+    "elfor": TokenType.ELFOR,
     "match": TokenType.MATCH,
     "fn": TokenType.FN,
     "to": TokenType.TO,
@@ -165,6 +170,7 @@ RESERVED_WORDS = {
     "class": TokenType.CLASS,
     "static": TokenType.STATIC,
     "trait": TokenType.TRAIT,
+    "self": TokenType.SELF,
     "classvar": TokenType.CLASSVAR,
     "fixed": TokenType.FIXED,
     "private": TokenType.PRIVATE,
