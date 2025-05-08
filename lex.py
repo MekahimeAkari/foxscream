@@ -202,8 +202,11 @@ class Lexer:
     def get_lexeme(self):
         return self.text[self.start:self.cur]
 
-    def add_token(self, token_type):
-        self.token_list.append(Token(token_type, self.get_lexeme(), self.start_col, self.start_line))
+    def add_token(self, token_type, trim_quotes=False):
+        lexeme = self.get_lexeme()
+        if trim_quotes:
+            lexeme = lexeme[1:-1]
+        self.token_list.append(Token(token_type, lexeme, self.start_col, self.start_line))
         self.new_lexeme()
 
     def advance(self, length=1):
@@ -341,13 +344,13 @@ class Lexer:
                             pass
                         pop = True
                 if not pop:
-                    while self.match(lambda x: x in list(range(0, 10)) or x == "_"):
+                    while self.match(lambda x: x in [str(i) for i in range(0, 10)] or x == "_"):
                         pass
                     if not self.end_of_source() and self.cur_input() == ".":
                         if self.cur_input(1).isdigit():
                             self.advance()
                             self.advance()
-                            while self.match(lambda x: x in list(range(0, 10)) or x == "_"):
+                            while self.match(lambda x: x in [str(i) for i in range(0, 10)] or x == "_"):
                                 pass
                             ttype = TokenType.FLOAT
                 self.add_token(ttype)
@@ -357,7 +360,7 @@ class Lexer:
                 while self.match(lambda x: x != start_quote) or self.match_char("\\" + start_quote):
                     pass
                 self.advance()
-                self.add_token(TokenType.STRING)
+                self.add_token(TokenType.STRING, trim_quotes=True)
             elif char in string.ascii_letters or char in ["_"]:
                 ttype = TokenType.NAME
                 while self.match(lambda x: x in string.ascii_letters or x in string.digits or x in ["_"]):

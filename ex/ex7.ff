@@ -1,0 +1,39 @@
+fn test(a, b)
+{
+    print(a+b)
+    return a
+    print(112)
+}
+
+fn test2(a)
+{
+    z = 0
+    print("str", z, a)
+    while z < a
+    {
+        print("while")
+        z = z + 1
+        while true
+        {
+            if a > 7
+                break
+            else
+                a = a + 1
+            print(z, a)
+        }
+        return z
+    }
+}
+
+fn test3(a)
+{
+    if a > 0
+        return a * test3(a-1)
+    else
+        return 1
+}
+
+print(test(2,1))
+print("next")
+print(test2(5))
+print("fac:", test3(4))

@@ -23,4 +23,4 @@ if __name__ == "__main__":
         source_text = source_file.read()
     interp = Interpreter(source_text)
     print(interp.ast.lprint())
-    print(interp.eval())
+    interp.eval()
