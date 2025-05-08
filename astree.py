@@ -545,7 +545,8 @@ class ForExpr(Expr):
         symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
         while (iter_pos < len(iter_arr) and not symbol_table_loop.loop_break_called):
             iter_val = iter_arr[iter_pos].eval(symbol_table)
-            last_expr = self.expr.eval(symbol_table_loop.bind(iter_name, InterpObj(iter_name, value=iter_val)))
+            symbol_table_loop.bind(iter_name, InterpObj(iter_name, value=iter_val))
+            last_expr = self.expr.eval(symbol_table_loop)
             iter_pos += 1
         return last_expr
 

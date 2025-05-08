@@ -53,6 +53,9 @@ class Parser:
 
     def match(self, *ttypes):
         peek_distance = 0
+        if self.lexer.peek(peek_distance).ttype in ttypes:
+            self.lexer.next_token(peek_distance)
+            return True
         while self.lexer.peek(peek_distance).ttype in [TokenType.NEWLINE, TokenType.SEMICOLON]:
             peek_distance += 1
         if self.lexer.peek(peek_distance).ttype in ttypes:
@@ -63,10 +66,11 @@ class Parser:
     def match_peek(self, *ttypes):
         peek_distance = 0
         for ttype in ttypes:
-            while self.lexer.peek(peek_distance).ttype in [TokenType.NEWLINE, TokenType.SEMICOLON]:
-                peek_distance += 1
             if self.lexer.peek(peek_distance).ttype != ttype:
-                return False
+                while self.lexer.peek(peek_distance).ttype in [TokenType.NEWLINE, TokenType.SEMICOLON]:
+                    peek_distance += 1
+                if self.lexer.peek(peek_distance).ttype != ttype:
+                    return False
             peek_distance += 1
         return True
 
