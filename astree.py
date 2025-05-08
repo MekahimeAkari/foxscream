@@ -533,8 +533,8 @@ class ForExpr(Expr):
     iter_name: Name
     iter_expr: Expr
     expr: Expr
-    elloops: None
-    elseexpr: None
+    elloops: None = None
+    elseexpr: None = None
 
     def lprint(self):
         return "(for {} in {} {})".format(self.iter_name.lprint(), self.iter_expr, self.expr.lprint())
@@ -556,8 +556,8 @@ class ForExpr(Expr):
 class WhileExpr(Expr):
     guard: Expr
     expr: Expr
-    elloops: None
-    elseexpr: None
+    elloops: None = None
+    elseexpr: None = None
 
     def lprint(self):
         return "(while {} {})".format(self.guard.lprint(), self.expr.lprint())
