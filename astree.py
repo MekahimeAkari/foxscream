@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
 import pprint
+import copy
 
 @dataclass
 class SymbolTable:
@@ -23,11 +24,11 @@ class SymbolTable:
                            enclosing_loop_scope=enclosing_loop_scope,
                            class_definition=class_definition)
 
-    def find(self, name):
+    def find(self, name, length=0):
         if name in self.symbols:
             return self.symbols[name]
         elif self.parent is not None:
-            return self.parent.find(name)
+            return self.parent.find(name, length=length+1)
         return None
 
     def bind(self, name, obj):
@@ -37,6 +38,9 @@ class SymbolTable:
         elif self.parent is not None:
             if self.parent.bind(name, obj) is None:
                 self.symbols[name] = obj
+                return obj
+        else:
+            self.symbols[name] = obj
         return None
 
     def scope_return(self, return_val_sent=False, return_val=None):
@@ -80,12 +84,10 @@ class FuncSig:
 @dataclass
 class ObjConstructor(FuncSig):
 
-    def eval(self, symbol_table, parents, instance_fields, objclass, *args):
-        ret_obj = InterpObj("newobj", parents=parents, fields=instance_fields, objclass=objclass)
-        func_symbol_table = symbol_table.new()
+    def eval(self, symbol_table, parents, objclass, *args):
+        ret_obj = InterpObj("newobj", parents=parents, symbol_table=symbol_table, objclass=objclass)
+        func_symbol_table = symbol_table
         func_symbol_table.enclosing_function_scope = True
-        for fieldname, fieldobj in ret_obj.fields.items():
-            func_symbol_table.symbols[fieldname] = fieldobj
         if len(self.posargs) > len(args):
             raise Exception("function requires more arguments")
         elif len(self.posargs) < len(args):
@@ -99,6 +101,8 @@ class ObjConstructor(FuncSig):
 class InterpObj:
     name: str
     value: None = None
+    symbol_table: SymbolTable = field(default_factory=SymbolTable)
+    instance_symbol_table: SymbolTable = field(default_factory=SymbolTable)
     fields: dict = field(default_factory=dict)
     objclass: None = None
     instance_fields: dict = field(default_factory=dict)
@@ -106,33 +110,38 @@ class InterpObj:
     func: None = None
 
     def __post_init__(self):
+        parents_symbol_table = {}
+        parents_instance_symbol_table = {}
         for parent in self.parents:
-            for fieldname, fieldobj in parent.fields.items():
-                if fieldname not in self.fields:
-                    self.fields[fieldname] = fieldobj.copy()
-                    if fieldname == "init":
-                        self.func = fieldobj.func
-            for fieldname, fieldobj in parent.instance_fields.items():
-                if fieldname not in self.instance_fields:
-                    self.instance_fields[fieldname] = fieldobj
-            self.fields
+            for name, value in parent.symbol_table.symbols.items():
+                parents_symbol_table[name] = value
+            for name, value in parent.instance_symbol_table.symbols.items():
+                parents_instance_symbol_table[name] = value
+        for name, value in parents_symbol_table.items():
+            if name not in self.symbol_table.symbols:
+                self.symbol_table.symbols[name] = copy.copy(value)
+        for name, value in parents_instance_symbol_table.items():
+            if name not in self.instance_symbol_table.symbols:
+                self.instance_symbol_table.symbols[name] = copy.copy(value)
 
     def assign(self, other):
-        print(self.name, other)
         self.value = other.value
 
     def call(self, symbol_table, *args):
         if self.func is None:
             raise Exception("Cannot call {}".format(self.name))
         elif isinstance(self.func, ObjConstructor):
-            return self.func.eval(symbol_table, self.parents, self.instance_fields, self, *args)
+            return self.func.eval(copy.deepcopy(self.instance_symbol_table), self.parents, self, *args)
         elif isinstance(self.func, FuncSig):
             return self.func.eval(symbol_table, *args)
         else:
             return self.func(*args)
 
     def __str__(self):
-        return str(self.value)
+        if self.value is None:
+            return str(self.name)
+        else:
+            return str(self.value)
 
     def copy(self):
         return InterpObj(self.name, value=self.value, fields={k:v.copy() for k, v in self.fields.items()},
@@ -162,7 +171,6 @@ class Expr(ASTNode):
 @dataclass
 class EmptyExpr(Expr):
     def eval(self, symbol_table):
-        print("empty")
         return
 
 class Primary(Expr):
@@ -263,7 +271,6 @@ class Accessor(Expr):
         return "{}{}".format(self.access_type.lprint(), "" if self.next_accessor is None else self.next_accessor.lprint())
 
     def eval(self, symbol_table, parent_obj):
-        print("access", self.access_type)
         return self.access_type.eval(symbol_table, parent_obj)
 
 @dataclass
@@ -281,14 +288,13 @@ class Primary(Expr):
             else:
                 return InterpObj("literal", value=self.target.eval(symbol_table))
         name = self.target.eval(symbol_table)
+        if assign and self.accessor is None:
+            return name
         obj = None
         if symbol_table.find(name) is None:
-            if assign:
-                symbol_table.bind(name, InterpObj(name))
-            else:
-                raise Exception("No name {} known".format(name))
-        obj = symbol_table.find(name) # TODO: handle call/slice
-        print(name, repr(obj))
+            raise Exception("No name {} known".format(name))
+        else:
+            obj = symbol_table.find(name) # TODO: handle call/slice
         if self.accessor:
             obj = self.accessor.eval(symbol_table, obj)
         return obj
@@ -307,8 +313,7 @@ class AssignExpr(Expr):
 
     def eval(self, symbol_table):
         obj = self.target.eval(symbol_table, assign=True)
-        print(self.expr)
-        symbol_table.bind(obj.name, self.expr.eval(symbol_table))
+        symbol_table.bind(obj, self.expr.eval(symbol_table))
         return obj
 
 class BinOp(Enum):
@@ -562,10 +567,10 @@ class ClassDecl(Expr):
             symbol_table.symbols[name] = class_obj
         class_symbol_table = symbol_table.new(class_definition=True)
         self.expr.eval(class_symbol_table)
+        class_obj.instance_symbol_table = class_symbol_table
         for symname, symbol in class_symbol_table.symbols.items():
             if symname == "init":
                 class_obj.func = ObjConstructor(symbol.func)
-            class_obj.instance_fields[symname] = symbol
         return class_obj
 
 @dataclass
