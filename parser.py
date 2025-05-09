@@ -255,7 +255,7 @@ class Parser:
             raise Exception("Expected one of class, static, trait")
         self.lexer.next_token()
         name = None
-        if self.lexer.peek().ttype == TokenType.NAME:
+        if self.match(TokenType.NAME):
             name = self.nameexpr()
         parents = None
         if self.match(TokenType.OF):
@@ -264,11 +264,11 @@ class Parser:
             parents.append(self.nameexpr())
             while self.match(TokenType.COMMA):
                 self.lexer.next_token()
-                if not self.lexer.peek().ttype == TokenType.NAME:
+                if not self.match(TokenType.NAME):
                     raise Exception("Expected name")
                 parents.append(self.nameexpr())
         expr = None
-        if self.lexer.peek().ttype != TokenType.SEMICOLON:
+        if not self.match(TokenType.SEMICOLON):
             expr = self.req_expr()
         else:
             self.lexer.next_token()
@@ -290,7 +290,7 @@ class Parser:
     def block(self):
         exprs = []
         self.lexer.next_token()
-        while self.lexer.peek().ttype != TokenType.CLOSE_BRACE:
+        while not self.match(TokenType.CLOSE_BRACE):
             exprs.append(self.expr())
         self.lexer.next_token()
         return Block(None, ExprList(exprs))

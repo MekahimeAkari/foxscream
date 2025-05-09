@@ -1,0 +1,33 @@
+class chicken
+{
+    beak = 1
+}
+
+class milk
+{
+    moonoise = "moo"
+    fn init() print(moonoise)
+}
+
+class cheese of milk {
+    moonoise = "cheeseo"
+    fn init()
+    {
+        print("making che")
+        print(moonoise)
+    }
+}
+
+class fries of cheese, chicken
+{
+}
+
+a = chicken()
+print(a)
+#print(a.beak)
+b = milk()
+#b.moo()
+c = cheese()
+#print(c.moonoise)
+d = fries()
+#print(d.beak)
