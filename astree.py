@@ -173,6 +173,23 @@ class EmptyExpr(Expr):
     def eval(self, symbol_table):
         return
 
+@dataclass
+class Block(Expr):
+    label: str
+    exprs: ExprList
+
+    def lprint(self):
+        return "{}{{{}}}".format("" if self.label is None else "{}:".format(self.label), self.exprs.lprint())
+
+    def eval(self, symbol_table):
+        block_symbol_table = symbol_table.new(scope_label=self.label)
+        ret = self.exprs.eval(block_symbol_table)
+        if symbol_table.class_definition:
+            for name, symbol in block_symbol_table.symbols.items():
+                symbol_table.symbols[name] = symbol
+        return ret
+
+
 class Primary(Expr):
     pass
 
@@ -231,9 +248,9 @@ class Call(Expr):
     def lprint(self):
         return "({})".format(",".join([x.lprint() for x in self.args]))
 
-    def eval(self, symbol_table, parent_obj):
+    def eval(self, symbol_table, obj, assign=False, assign_expr=None):
         call_args = [x.eval(symbol_table) for x in self.args]
-        return parent_obj.call(symbol_table, *call_args)
+        return obj.call(symbol_table, *call_args)
 
 @dataclass
 class Slice(Expr):
@@ -246,21 +263,13 @@ class Field(Expr):
     def lprint(self):
         return ".{}".format(self.name.lprint())
 
-@dataclass
-class Block(Expr):
-    label: str
-    exprs: ExprList
-
-    def lprint(self):
-        return "{}{{{}}}".format("" if self.label is None else "{}:".format(self.label), self.exprs.lprint())
-
-    def eval(self, symbol_table):
-        block_symbol_table = symbol_table.new(scope_label=self.label)
-        ret = self.exprs.eval(block_symbol_table)
-        if symbol_table.class_definition:
-            for name, symbol in block_symbol_table.symbols.items():
-                symbol_table.symbols[name] = symbol
-        return ret
+    def eval(self, symbol_table, obj, assign=False, assign_expr=None):
+        field_name = self.name.eval(symbol_table)
+        obj_symbol_table = obj.symbol_table
+        if assign is False:
+            return obj_symbol_table.find(field_name)
+        else:
+            return obj_symbol_table.bind(field_name, assign_expr)
 
 @dataclass
 class Accessor(Expr):
@@ -270,8 +279,13 @@ class Accessor(Expr):
     def lprint(self):
         return "{}{}".format(self.access_type.lprint(), "" if self.next_accessor is None else self.next_accessor.lprint())
 
-    def eval(self, symbol_table, parent_obj):
-        return self.access_type.eval(symbol_table, parent_obj)
+    def eval(self, symbol_table, obj, assign=False, assign_expr=None):
+        if self.next_accessor is None:
+            return self.access_type.eval(symbol_table, obj,
+                                         assign=assign, assign_expr=assign_expr)
+        return self.next_accessor.eval(symbol_table,
+            self.access_type.eval(obj.symbol_table, obj), assign=assign,
+                                                          assign_expr=assign_expr)
 
 @dataclass
 class Primary(Expr):
@@ -281,23 +295,20 @@ class Primary(Expr):
     def lprint(self):
         return "{}{}".format(self.target.lprint(), "" if self.accessor is None else self.accessor.lprint())
 
-    def eval(self, symbol_table, assign=False):
+    def eval(self, symbol_table, assign=False, assign_expr=None):
         if isinstance(self.target, Literal):
             if assign:
                 raise Exception("Cannot assign to Literal")
             else:
                 return InterpObj("literal", value=self.target.eval(symbol_table))
         name = self.target.eval(symbol_table)
-        if assign and self.accessor is None:
-            return name
-        obj = None
-        if symbol_table.find(name) is None:
-            raise Exception("No name {} known".format(name))
+        if self.accessor is not None:
+            return self.accessor.eval(symbol_table, symbol_table.find(name), assign=assign,
+                                      assign_expr=assign_expr)
+        elif assign:
+            return symbol_table.bind(name, assign_expr)
         else:
-            obj = symbol_table.find(name) # TODO: handle call/slice
-        if self.accessor:
-            obj = self.accessor.eval(symbol_table, obj)
-        return obj
+            return symbol_table.find(name)
 
 class AssignOp(Enum):
     NORMAL = auto()
@@ -312,9 +323,8 @@ class AssignExpr(Expr):
         return "({} {} {})".format(self.operator, self.target.lprint(), self.expr.lprint())
 
     def eval(self, symbol_table):
-        obj = self.target.eval(symbol_table, assign=True)
-        symbol_table.bind(obj, self.expr.eval(symbol_table))
-        return obj
+        return self.target.eval(symbol_table, assign=True,
+                                assign_expr=self.expr.eval(symbol_table))
 
 class BinOp(Enum):
     ADD = auto()
