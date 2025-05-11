@@ -143,5 +143,6 @@ example!)
     - [ ] ffi
     - [ ] bytecode
     - [ ] compliation?
+    - [ ] comment better
 - [ ] C implementation
 - [ ] remove old/
