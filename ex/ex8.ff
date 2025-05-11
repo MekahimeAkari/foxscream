@@ -1,3 +1,5 @@
+beak = 2
+
 class chicken
 {
     beak = 1
@@ -6,17 +8,14 @@ class chicken
 class milk
 {
     moonoise = "moo"
-    fn init() print(moonoise)
+    fn moo() print("moonoise", moonoise)
 }
 
 class cheese of milk {
     moonoise = "cheeseo"
     fn init()
     {
-        print("making che")
-        print(moonoise)
         moonoise = "unno"
-        print(moonoise)
     }
 }
 
@@ -25,11 +24,20 @@ class fries of cheese, chicken
 }
 
 a = chicken()
-print(a)
-print(a.beak)
+b = chicken()
+print("outer", beak)
+print("a", a.beak)
+print("b", b.beak)
+b.beak = 6
+print("outer", beak)
+print("a", a.beak)
+print("b", b.beak)
 b = milk()
+print("b")
 b.moo()
 c = cheese()
 print(c.moonoise)
+c.moo()
 d = fries()
 print(d.beak)
+d.moo()

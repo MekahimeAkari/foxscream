@@ -483,23 +483,14 @@ class Parser:
         return arrayconst(const_values)
 
     def access(self):
-        root_accessor = None
-        cur_access = root_accessor
-        while self.lexer.peek().is_op(TokenType.OPEN_PAREN, TokenType.DOT, TokenType.OPEN_SQUARE):
+        if self.lexer.peek().is_op(TokenType.OPEN_PAREN, TokenType.DOT, TokenType.OPEN_SQUARE):
             if self.match(TokenType.OPEN_PAREN):
-                cur_access = Accessor(self.fncall(), None)
+                return Accessor(self.fncall(), self.access())
             elif self.match(TokenType.DOT):
-                cur_access = Accessor(self.fieldaccess(), None)
+                return Accessor(self.fieldaccess(), self.access())
             elif self.match(TokenType.OPEN_SQUARE):
-                cur_access = Accessor(self.slice(), None)
-            else:
-                break
-
-            if root_accessor is None:
-                root_accessor = cur_access
-            cur_access = cur_access.next_accessor
-
-        return root_accessor
+                return Accessor(self.slice(), self.access())
+        return None
 
     def fieldaccess(self):
         self.lexer.next_token()
