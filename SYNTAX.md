@@ -1,5 +1,22 @@
 # Foxscream Syntax
 
+## TODO
+
+- Implement a lot
+- match syntax
+- elfor, elwhile, else
+- exceptions?
+- import
+- namespaces
+- using
+- augmented assignment
+- array ops?
+- operator overloading
+- string formatting
+- regex syntax
+- grammar syntax
+- typing syntax
+
 ## Basic syntax
 
 Foxscream is a curly-brace, semi-whitespace sensitive language. The overall syntax is a mix
@@ -31,7 +48,7 @@ expression, whereas the second evaluates to `(2, 1)`.
 
 ## Aggregate types
 
-### Tuples
+### Tuples NOT IMPLEMENTED
 
 Tuples are largely based on Python:
 
@@ -227,7 +244,7 @@ Here, were iterate from `1` to `3` over `b`, looking for a string with the first
 If we find one (`i == 3`, `"apple"`) we break and the value is that string. Otherwise, the
 last expression will be `"not found"`.
 
-## of
+## of NOT IMPLEMENTED
 
 `of` is a type-checking statement, to be used similarly to Python's `isinstance` but less ugly.
 
@@ -239,7 +256,7 @@ if a of int # true
 }
 ```
 
-## has
+## has NOT IMPLEMENTED
 
 `has` is for structural typing - to check if something is within a object.
 
@@ -271,7 +288,7 @@ a = 2
 return a
 ```
 
-## defer
+## defer NOT IMPLEMENTED
 
 `defer` evaluates the expression on leaving the current block. Similarly to Zig,
 `defer` expressions are done in reverse order of declaration.
@@ -451,7 +468,7 @@ class a
 print(a().b) # prints 2
 ```
 
-`static` classes are like Java - the class definition itself is a single object. The constructor
+`static` classes are like Java (NOT IMPLEMENTED) - the class definition itself is a single object. The constructor
 in this case is called once the class comes into scope:
 
 ```text
@@ -459,14 +476,14 @@ static a
 {
     a
     b
-    fn a() { a = 1; b = 2; }
+    fn init() { a = 1; b = 2; }
 }
 # a() called here
 # a() - illegal
 print(a.b) # prints 2
 ```
 
-`trait` is taken from Rust - `trait` classes cannot be instantiated (thus have no need for a
+`trait` is taken from Rust (NOT IMPLEMENTED) - `trait` classes cannot be instantiated (thus have no need for a
 constructor) but hold some code that may be shared between otherwise non-related classes:
 
 ```text
@@ -480,12 +497,12 @@ trait a
 
 class b of a
 {
-    fn b() { print(a); }
+    fn init() { print(a); }
 }
 
 class c of a
 {
-    fn c() { print(a+1); }
+    fn init() { print(a+1); }
 }
 b() # prints 2
 c() # prints 3

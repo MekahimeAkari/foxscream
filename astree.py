@@ -311,11 +311,14 @@ class Primary(Expr):
         return "{}{}".format(self.target.lprint(), "" if self.accessor is None else self.accessor.lprint())
 
     def eval(self, symbol_table, assign=False, assign_expr=None):
-        if isinstance(self.target, Literal):
+        if not isinstance(self.target, Name):
             if assign:
                 raise Exception("Cannot assign to Literal")
             else:
-                return InterpObj("literal", value=self.target.eval(symbol_table))
+                value = self.target.eval(symbol_table)
+                if isinstance(value, InterpObj):
+                    value = value.value
+                return InterpObj("literal", value=value)
         name = self.target.eval(symbol_table)
         if self.accessor is not None:
             return self.accessor.eval(symbol_table, symbol_table.find(name, throw=True), assign=assign,
@@ -381,46 +384,48 @@ class BinExpr(Expr):
 
     def eval(self, symbol_table):
         res = None
+        lhs = self.lhs.eval(symbol_table).value
+        rhs = self.rhs.eval(symbol_table).value
         if self.operator == BinOp.ADD:
-            res = self.lhs.eval(symbol_table).value + self.rhs.eval(symbol_table).value
+            res = lhs + rhs
         elif self.operator == BinOp.SUB:
-            res = self.lhs.eval(symbol_table).value - self.rhs.eval(symbol_table).value
+            res = lhs - rhs
         elif self.operator == BinOp.EXP:
-            res = self.lhs.eval(symbol_table).value ** self.rhs.eval(symbol_table).value
+            res = lhs ** rhs
         elif self.operator == BinOp.MUL:
-            res = self.lhs.eval(symbol_table).value * self.rhs.eval(symbol_table).value
+            res = lhs * rhs
         elif self.operator == BinOp.DIV:
-            res = self.lhs.eval(symbol_table).value / self.rhs.eval(symbol_table).value
+            res = lhs / rhs
         elif self.operator == BinOp.INTDIV:
-            res = self.lhs.eval(symbol_table).value // self.rhs.eval(symbol_table).value
+            res = lhs // rhs
         elif self.operator == BinOp.MOD:
-            res = self.lhs.eval(symbol_table).value % self.rhs.eval(symbol_table).value
+            res = lhs % rhs
         elif self.operator == BinOp.LSHIFT:
-            res = self.lhs.eval(symbol_table).value << self.rhs.eval(symbol_table).value
+            res = lhs << rhs
         elif self.operator == BinOp.RSHIFT:
-            res = self.lhs.eval(symbol_table).value >> self.rhs.eval(symbol_table).value
+            res = lhs >> rhs
         elif self.operator == BinOp.BITAND:
-            res = self.lhs.eval(symbol_table).value & self.rhs.eval(symbol_table).value
+            res = lhs & rhs
         elif self.operator == BinOp.BITXOR:
-            res = self.lhs.eval(symbol_table).value ^ self.rhs.eval(symbol_table).value
+            res = lhs ^ rhs
         elif self.operator == BinOp.BITOR:
-            res = self.lhs.eval(symbol_table).value | self.rhs.eval(symbol_table).value
+            res = lhs | rhs
         elif self.operator == BinOp.EQ:
-            res = self.lhs.eval(symbol_table).value == self.rhs.eval(symbol_table).value
+            res = lhs == rhs
         elif self.operator == BinOp.NE:
-            res = self.lhs.eval(symbol_table).value != self.rhs.eval(symbol_table).value
+            res = lhs != rhs
         elif self.operator == BinOp.GT:
-            res = self.lhs.eval(symbol_table).value > self.rhs.eval(symbol_table).value
+            res = lhs > rhs
         elif self.operator == BinOp.LT:
-            res = self.lhs.eval(symbol_table).value < self.rhs.eval(symbol_table).value
+            res = lhs < rhs
         elif self.operator == BinOp.GE:
-            res = self.lhs.eval(symbol_table).value >= self.rhs.eval(symbol_table).value
+            res = lhs >= rhs
         elif self.operator == BinOp.LE:
-            res = self.lhs.eval(symbol_table).value <= self.rhs.eval(symbol_table).value
+            res = lhs <= rhs
         elif self.operator == BinOp.AND:
-            res = self.lhs.eval(symbol_table).value and self.rhs.eval(symbol_table).value
+            res = lhs and rhs
         elif self.operator == BinOp.OR:
-            res = self.lhs.eval(symbol_table).value or self.rhs.eval(symbol_table).value
+            res = lhs or rhs
         else:
             raise Exception("unimplemented")
         return InterpObj("intermediate", value=res)
