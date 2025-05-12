@@ -1,0 +1,47 @@
+z = 1
+while z > 0
+{
+    print("z", z)
+    z = z - 1
+}
+
+fn test(a, b, c)
+{
+    if a > 10
+    {
+        print("10")
+    }
+    elfor i in []
+    {
+        print("elfor")
+    }
+    elwhile a > b
+    {
+        a = a - 1
+        print("a b", a, b)
+    }
+    elfor i in c
+    {
+        print("c", i)
+    }
+    elif c[0] == 3
+    {
+        print("3")
+    }
+    else
+    {
+        print("else")
+    }
+}
+
+print("first")
+test(11, 0, [])
+print(" ")
+print("third")
+test(2, 0, [])
+print(" ")
+print("fourth")
+test(0, 0, [1, 2])
+print(" ")
+print("fifth")
+test(0, 0, [])

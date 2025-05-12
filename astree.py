@@ -35,20 +35,19 @@ class SymbolTable:
         return None
 
     def bind(self, name, obj):
-        if name in self.symbols:
+        if obj is None:
+            obj = self.find("null")
+        if name in self.symbols or self.class_definition or self.parent is None:
             self.symbols[name] = obj
             obj.name = name
             return obj
-        elif self.parent is not None and not self.class_definition:
+        elif self.parent is not None:
             if self.parent.bind(name, obj) is None:
                 self.symbols[name] = obj
                 obj.name = name
                 return obj
-        else:
-            if obj is None:
-                obj = self.find("null")
-            self.symbols[name] = obj
-            return obj
+            else:
+                return obj
         return None
 
     def scope_return(self, return_val_sent=False, return_val=None):
@@ -562,8 +561,8 @@ class IfExpr(Expr):
             return self.ifexpr.eval(symbol_table.new())
         if self.elifexprs is not None:
             for elifexpr in self.elifexprs:
-                elif_res = elifexpr.eval(symbol_table)
-                if elif_res is not None:
+                elif_res, el_ran = elifexpr.eval(symbol_table)
+                if el_ran is True:
                     return elif_res
         if self.elseexpr is not None:
             return self.elseexpr.eval(symbol_table)
@@ -577,7 +576,7 @@ class ElifExpr(Expr):
         return "elif {} {}".format(self.guard.lprint(), self.expr.lprint())
 
     def eval(self, symbol_table):
-        return None if self.guard.eval(symbol_table).value is not True else self.expr.eval(symbol_table.new())
+        return None, False if self.guard.eval(symbol_table).value is not True else self.expr.eval(symbol_table.new()), True
 
 @dataclass
 class ElseExpr(Expr):
@@ -697,12 +696,22 @@ class ForExpr(Expr):
         iter_name = self.iter_name.eval(symbol_table)
         last_expr = None
         symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
+        loop_ran = False
         while (iter_pos < len(iter_arr) and not symbol_table_loop.break_called):
+            loop_ran = True
             iter_val = iter_arr[iter_pos].eval(symbol_table)
             symbol_table_loop.bind(iter_name, InterpObj(iter_name, value=iter_val))
             last_expr = self.expr.eval(symbol_table_loop)
             iter_pos += 1
-        return last_expr
+        if loop_ran:
+            return last_expr
+        if self.elifexprs is not None:
+            for elexpr in self.elexprs:
+                el_res, el_run = elexpr.eval(symbol_table)
+                if el_run is True:
+                    return el_res
+        if self.elseexpr is not None:
+            return self.elseexpr.eval(symbol_table)
 
 @dataclass
 class ElforExpr(Expr):
@@ -712,6 +721,21 @@ class ElforExpr(Expr):
 
     def lprint(self):
         return "(elfor {} in {} {})".format(self.iter_name.lprint(), self.iter_expr, self.expr.lprint())
+
+    def eval(self, symbol_table):
+        iter_pos = 0
+        iter_arr = self.iter_expr.eval(symbol_table).value
+        iter_name = self.iter_name.eval(symbol_table)
+        last_expr = None
+        symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
+        loop_ran = False
+        while (iter_pos < len(iter_arr) and not symbol_table_loop.break_called):
+            loop_ran = True
+            iter_val = iter_arr[iter_pos].eval(symbol_table)
+            symbol_table_loop.bind(iter_name, InterpObj(iter_name, value=iter_val))
+            last_expr = self.expr.eval(symbol_table_loop)
+            iter_pos += 1
+        return last_expr, loop_ran
 
 @dataclass
 class WhileExpr(Expr):
@@ -726,9 +750,19 @@ class WhileExpr(Expr):
     def eval(self, symbol_table):
         last_expr = None
         symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
+        loop_ran = False
         while self.guard.eval(symbol_table).value is True and not symbol_table_loop.break_called:
+            loop_ran = True
             last_expr = self.expr.eval(symbol_table_loop)
-        return last_expr
+        if loop_ran:
+            return last_expr
+        if self.elifexprs is not None:
+            for elexpr in self.elexprs:
+                el_res, el_ran = elexpr.eval(symbol_table)
+                if el_ran is True:
+                    return el_res
+        if self.elseexpr is not None:
+            return self.elseexpr.eval(symbol_table)
 
 @dataclass
 class ElwhileExpr(Expr):
@@ -737,6 +771,15 @@ class ElwhileExpr(Expr):
 
     def lprint(self):
         return "(elwhile {} {})".format(self.guard.lprint(), self.expr.lprint())
+
+    def eval(self, symbol_table):
+        last_expr = None
+        symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
+        loop_ran = False
+        while self.guard.eval(symbol_table).value is True and not symbol_table_loop.break_called:
+            loop_ran = True
+            last_expr = self.expr.eval(symbol_table_loop)
+        return last_expr, loop_ran
 
 @dataclass
 class DoWhileExpr(Expr):

@@ -79,6 +79,7 @@ example!)
 - [x] [ex7](ex/ex7.ff)
 - [x] [ex8](ex/ex8.ff)
 - [x] [ex9](ex/ex9.ff)
+- [x] [ex10](ex/ex10.ff)
 - [ ] Actually good examples
 
 ## Progress
@@ -104,7 +105,7 @@ example!)
 - [ ] closures
 - [ ] functions or classes returned/assigned
 - [ ] match expressions
-- [ ] elfor/elwhile (works with if/else)
+- [x] elfor/elwhile (works with if/else)
 - [ ] exceptions/error handling syntax
 - [ ] tuples
 - [ ] import

@@ -4,7 +4,6 @@
 
 - Implement a lot
 - match syntax
-- elfor, elwhile, else
 - exceptions?
 - import
 - namespaces
@@ -111,6 +110,15 @@ a = {
 ```
 Assigns `a = 1`
 
+## control expressions
+
+Foxscream is a little different in that `if`, `for`, and `while` all have analogous control
+words and can be used together. `if` has `elif`, `for` has `elfor`, and `while` has `elwhile`.
+These can all be used in a single control block and will flow in order based on on
+whether the guarded expression if ever run - so a single time for `if`, or at least one
+time for `for` and `while`. They can all be used interchangably, and all can have a
+terminating `else` if no expressions are run.
+
 ## if
 
 `if` expressions are straightforward:
@@ -157,9 +165,34 @@ elif a == 4
 
 Here, `a = 4` and `c = 2`.
 
+It can also be used with `for` and `while` interchangably with `elfor` and `elwhile`:
+
+```text
+fn test(a)
+{
+    while a > 0
+    {
+        a = a - 1
+        print(a)
+    }
+    elif a < 0
+    {
+        print("negative")
+    }
+    else
+    {
+        print("a == 0")
+    }
+}
+
+test(2) # prints "1", "0"
+test(-1) # prints "negative"
+test(0) # prints "a == 0"
+```
+
 ## else
 
-`else` is a normal else for `if` and `elif`.
+`else` is a normal else for `if`, `while`, `for`, and `elif`, `elwhile`, and `elfor`.
 
 ```text
 b = 1
@@ -193,6 +226,34 @@ a = while b < 2 { b += 3; b; }
 ```
 
 Here, `a` gets assigned to 3 as `b` is the last expression in the while loop.
+
+## elwhile
+
+`elwhile` is `while`'s `elif` counterpart. It is run if the previous `if`, `while`, `for`,
+or `elif`, `elwhile`, `elfor` is false or not run:
+
+```text
+fn test(a)
+{
+    if a == 2
+    {
+        print(":)")
+    }
+    elwhile a > 2
+    {
+        a = a - 1
+        print(a)
+    }
+    elwhile a < 2
+    {
+        a = a + 1
+        print(a)
+    }
+}
+test(2) # prints ":)"
+test(4) # prints "3", "2"
+test(0) # prints "1", "2"
+```
 
 ## do-while
 
@@ -244,6 +305,33 @@ Here, were iterate from `1` to `3` over `b`, looking for a string with the first
 If we find one (`i == 3`, `"apple"`) we break and the value is that string. Otherwise, the
 last expression will be `"not found"`.
 
+## elfor
+
+`elfor` is the `elif` or `elwhile` equivalent for `for`, used if the previous `if`, `while`, `for`,
+or `elif`, `elwhile`, `elfor` is false or not run:
+
+```text
+fn test(a, b)
+{
+    if a > 2
+    {
+        print("big")
+    }
+    elfor i in b
+    {
+        print(i)
+    }
+    else
+    {
+        print("nah")
+    }
+}
+
+test(5, []) # prints "big"
+test(2, [1, 2]) # prints "1", "2"
+test(2, []) # prints "nah"
+```
+
 ## of NOT IMPLEMENTED
 
 `of` is a type-checking statement, to be used similarly to Python's `isinstance` but less ugly.
@@ -288,7 +376,7 @@ a = 2
 return a
 ```
 
-## defer NOT IMPLEMENTED
+## defer
 
 `defer` evaluates the expression on leaving the current block. Similarly to Zig,
 `defer` expressions are done in reverse order of declaration.

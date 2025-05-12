@@ -165,7 +165,7 @@ class Parser:
 
         elexprs = []
         while self.match(*elexprs_funcs.keys()):
-            func = elexprs_funcs[self.lexer.next_token()]
+            func = elexprs_funcs[self.lexer.next_token().ttype]
             elexprs.append(func())
         return elexprs
 
@@ -197,7 +197,6 @@ class Parser:
         return ForExpr(iter_name, iter_expr, expr, elexprs, elseexpr)
 
     def elforexpr(self):
-        self.lexer.next_token()
         if not self.match(TokenType.NAME):
             raise Exception("Expected name")
         iter_name = self.nameexpr()
