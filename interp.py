@@ -26,6 +26,9 @@ class Interpreter:
     def get_prelude(self):
         symbol_table = SymbolTable()
         symbol_table.symbols["print"] = InterpObj("print", func=print)
+        symbol_table.symbols["null"] = InterpObj("null")
+        symbol_table.symbols["true"] = InterpObj("true")
+        symbol_table.symbols["false"] = InterpObj("false")
         return symbol_table
 
     def eval(self, ast, symbol_table=None):

@@ -13,8 +13,9 @@ class SymbolTable:
     return_val: None = None
     enclosing_function_scope: bool = False
     enclosing_loop_scope: bool = False
-    loop_break_called: bool = False
+    break_called: bool = False
     class_definition: bool = False
+    registered_defers:list = field(default_factory=list)
 
     def new(self, symbols=None, scope_label=None, enclosing_function_scope=False,
             enclosing_loop_scope=False, class_definition=False):
@@ -44,8 +45,9 @@ class SymbolTable:
                 obj.name = name
                 return obj
         else:
+            if obj is None:
+                obj = self.find("null")
             self.symbols[name] = obj
-            obj.name = name
             return obj
         return None
 
@@ -53,14 +55,25 @@ class SymbolTable:
         self.return_called = True
         self.return_val_sent = return_val_sent
         self.return_val = return_val
-        self.loop_break_called = True
+        self.break_called = True
         if self.enclosing_function_scope is False and self.parent:
             self.parent.scope_return(return_val_sent, return_val)
 
     def scope_break(self, loop_label=None):
-        self.loop_break_called = True
+        self.break_called = True
         if self.enclosing_loop_scope is False and self.parent:
             self.parent.scope_break(loop_label)
+
+    def scope_continue(self, loop_label=None):
+        if self.enclosing_loop_scope is False and self.parent:
+            self.break_called = True
+            self.parent.scope_continue(loop_label)
+
+    def scope_leave(self, label=None):
+        self.break_called = True
+
+    def add_defer(self, expr, label=None):
+        self.registered_defers.insert(0, expr)
 
     def print_keys(self, level=0):
         return "{}: {}{}".format(level, self.symbols.keys(), ", {}".format(self.parent.print_keys(level=level+1) if self.parent is not None else ""))
@@ -169,10 +182,12 @@ class ExprList(ASTNode):
         last_ret = None
         for expression in self.exprs:
             last_ret = expression.eval(symbol_table)
-            if symbol_table.return_called is True or symbol_table.loop_break_called is True:
+            if symbol_table.return_called is True or symbol_table.break_called is True:
                 if symbol_table.return_val_sent is True:
                     last_ret = symbol_table.return_val
                 break
+        for defer in symbol_table.registered_defers:
+            last_ret = defer.eval(symbol_table)
         return last_ret
 
     def lprint(self):
@@ -492,17 +507,34 @@ class BreakExpr(SingleKWExpr):
 @dataclass
 class ContinueExpr(SingleKWExpr):
     def lprint(self):
-        return "({} {}{})".format("continue", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
+        return "({} {}{})".format("continue", "" if self.expr is None else self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
+
+    def eval(self, symbol_table):
+        ret_val = None
+        if self.expr:
+            ret_val = self.expr.eval(symbol_table)
+        symbol_table.scope_continue()
+        return ret_val
 
 @dataclass
 class LeaveExpr(SingleKWExpr):
     def lprint(self):
-        return "({} {}{})".format("leave", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
+        return "({} {}{})".format("leave", "" if self.expr is None else self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
+
+    def eval(self, symbol_table):
+        ret_val = None
+        if self.expr:
+            ret_val = self.expr.eval(symbol_table)
+        symbol_table.scope_leave()
+        return ret_val
 
 @dataclass
 class DeferExpr(SingleKWExpr):
     def lprint(self):
-        return "({} {}{})".format("defer", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
+        return "({} {}{})".format("defer", "" if self.expr is None else self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
+
+    def eval(self, symbol_table):
+        symbol_table.add_defer(self.expr)
 
 @dataclass
 class YieldExpr(SingleKWExpr):
@@ -653,7 +685,7 @@ class ForExpr(Expr):
     iter_name: Name
     iter_expr: Expr
     expr: Expr
-    elloops: None = None
+    elexprs: None = None
     elseexpr: None = None
 
     def lprint(self):
@@ -665,7 +697,7 @@ class ForExpr(Expr):
         iter_name = self.iter_name.eval(symbol_table)
         last_expr = None
         symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
-        while (iter_pos < len(iter_arr) and not symbol_table_loop.loop_break_called):
+        while (iter_pos < len(iter_arr) and not symbol_table_loop.break_called):
             iter_val = iter_arr[iter_pos].eval(symbol_table)
             symbol_table_loop.bind(iter_name, InterpObj(iter_name, value=iter_val))
             last_expr = self.expr.eval(symbol_table_loop)
@@ -673,10 +705,19 @@ class ForExpr(Expr):
         return last_expr
 
 @dataclass
+class ElforExpr(Expr):
+    iter_name: Name
+    iter_expr: Expr
+    expr: Expr
+
+    def lprint(self):
+        return "(elfor {} in {} {})".format(self.iter_name.lprint(), self.iter_expr, self.expr.lprint())
+
+@dataclass
 class WhileExpr(Expr):
     guard: Expr
     expr: Expr
-    elloops: None = None
+    elexprs: None = None
     elseexpr: None = None
 
     def lprint(self):
@@ -685,9 +726,17 @@ class WhileExpr(Expr):
     def eval(self, symbol_table):
         last_expr = None
         symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
-        while self.guard.eval(symbol_table).value is True and not symbol_table_loop.loop_break_called:
+        while self.guard.eval(symbol_table).value is True and not symbol_table_loop.break_called:
             last_expr = self.expr.eval(symbol_table_loop)
         return last_expr
+
+@dataclass
+class ElwhileExpr(Expr):
+    guard: Expr
+    expr: Expr
+
+    def lprint(self):
+        return "(elwhile {} {})".format(self.guard.lprint(), self.expr.lprint())
 
 @dataclass
 class DoWhileExpr(Expr):
@@ -700,7 +749,7 @@ class DoWhileExpr(Expr):
     def eval(self, symbol_table):
         symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
         last_expr = self.expr.eval(symbol_table_loop)
-        while self.guard.eval(symbol_table).value is True and not symbol_table_loop.loop_break_called:
+        while self.guard.eval(symbol_table).value is True and not symbol_table_loop.break_called:
             last_expr = self.expr.eval(symbol_table_loop)
         return last_expr
 

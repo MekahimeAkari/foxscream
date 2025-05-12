@@ -78,6 +78,7 @@ example!)
 - [x] [ex6](ex/ex6.ff)
 - [x] [ex7](ex/ex7.ff)
 - [x] [ex8](ex/ex8.ff)
+- [x] [ex9](ex/ex9.ff)
 - [ ] Actually good examples
 
 ## Progress
@@ -96,9 +97,9 @@ example!)
 - [x] basic inheritance
 - [x] return
 - [x] break
-- [ ] continue
-- [ ] defer
-- [ ] leave
+- [x] continue
+- [x] defer
+- [x] leave
 - [ ] control expressions to labels
 - [ ] closures
 - [ ] functions or classes returned/assigned
@@ -112,6 +113,7 @@ example!)
 - [ ] augmented assignment
 - [ ] array operators
 - [ ] operator overloading
+- [ ] function overloading
 - [ ] string formatting
 - [ ] regex syntax
 - [ ] grammar syntax

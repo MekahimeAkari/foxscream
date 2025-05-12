@@ -10,7 +10,7 @@ from astree import Literal, StringLiteral, IntLiteral, FloatLiteral, BoolLiteral
 from astree import Call, Slice, Field, Accessor, AssignOp, AssignExpr
 from astree import BinOp, BinExpr, UnOp, UnExpr
 from astree import ReturnExpr, BreakExpr, LeaveExpr, ContinueExpr, DeferExpr, YieldExpr
-from astree import IfExpr, ElifExpr, ElseExpr, Block, FnDecl, WhileExpr, DoWhileExpr, ForExpr
+from astree import IfExpr, ElifExpr, ElseExpr, Block, FnDecl, WhileExpr, DoWhileExpr, ForExpr, ElforExpr, ElwhileExpr
 from astree import ClassType, ClassDecl, MatchExpr, CaseExpr
 
 class Parser:
@@ -147,12 +147,6 @@ class Parser:
             target = self.nameexpr()
         return singlekw(target, expr)
 
-    def whileexpr(self):
-        self.lexer.next_token()
-        guard = self.arith()
-        expr = self.req_expr()
-        return WhileExpr(guard, expr)
-
     def dowhileexpr(self):
         self.lexer.next_token()
         expr = self.req_expr()
@@ -161,6 +155,32 @@ class Parser:
         self.lexer.next_token()
         guard = self.arith()
         return DoWhileExpr(guard, expr)
+
+    def elexprs(self):
+        elexprs_funcs = {
+            TokenType.ELIF: self.elifexpr,
+            TokenType.ELFOR: self.elforexpr,
+            TokenType.ELWHILE: self.elwhileexpr
+        }
+
+        elexprs = []
+        while self.match(*elexprs_funcs.keys()):
+            func = elexprs_funcs[self.lexer.next_token()]
+            elexprs.append(func())
+        return elexprs
+
+    def whileexpr(self):
+        self.lexer.next_token()
+        guard = self.arith()
+        expr = self.req_expr()
+        elexprs = self.elexprs()
+        elseexpr = self.elseexpr()
+        return WhileExpr(guard, expr, elexprs, elseexpr)
+
+    def elwhileexpr(self):
+        guard = self.arith()
+        expr = self.req_expr()
+        return ElwhileExpr(guard, expr)
 
     def forexpr(self):
         self.lexer.next_token()
@@ -172,7 +192,42 @@ class Parser:
         self.lexer.next_token()
         iter_expr = self.req_expr()
         expr = self.req_expr()
-        return ForExpr(iter_name, iter_expr, expr)
+        elexprs = self.elexprs()
+        elseexpr = self.elseexpr()
+        return ForExpr(iter_name, iter_expr, expr, elexprs, elseexpr)
+
+    def elforexpr(self):
+        self.lexer.next_token()
+        if not self.match(TokenType.NAME):
+            raise Exception("Expected name")
+        iter_name = self.nameexpr()
+        if not self.match(TokenType.IN):
+            raise Exception("Expected in")
+        self.lexer.next_token()
+        iter_expr = self.req_expr()
+        expr = self.req_expr()
+        return ElforExpr(iter_name, iter_expr, expr)
+
+    def ifexpr(self):
+        self.lexer.next_token()
+        ifguard = self.arith()
+        ifexpr = self.req_expr()
+        elexprs = self.elexprs()
+        elseexpr = self.elseexpr()
+        return IfExpr(ifguard, ifexpr, elexprs, elseexpr)
+
+    def elifexpr(self):
+        guard = self.arith()
+        expr = self.req_expr()
+        return ElifExpr(guard, expr)
+
+    def elseexpr(self):
+        if self.match(TokenType.ELSE):
+            self.lexer.next_token()
+            expr = self.req_expr()
+            return ElseExpr(expr)
+        else:
+            return None
 
     def matchexpr(self):
         self.lexer.next_token()
@@ -200,28 +255,6 @@ class Parser:
         self.lexer.next_token()
         return MatchExpr(expr, cases)
 
-    def ifexpr(self):
-        self.lexer.next_token()
-        ifguard = self.arith()
-        ifexpr = self.req_expr()
-        elifexprs = []
-        while self.match(TokenType.ELIF):
-            self.lexer.next_token()
-            elifexprs.append(self.elifexpr())
-        elseexpr = None
-        if self.match(TokenType.ELSE):
-            self.lexer.next_token()
-            elseexpr = self.elseexpr()
-        return IfExpr(ifguard, ifexpr, elifexprs, elseexpr)
-
-    def elifexpr(self):
-        guard = self.arith()
-        expr = self.req_expr()
-        return ElifExpr(guard, expr)
-
-    def elseexpr(self):
-        expr = self.req_expr()
-        return ElseExpr(expr)
 
     def fndecl(self):
         self.lexer.next_token()

@@ -1,0 +1,20 @@
+a = 5
+b = 1
+while a > 1
+{
+    a = a - 1
+    print(a)
+    if b == 1 continue
+    b = b - 1
+}
+print(a, b)
+
+c = {
+    defer a
+    defer print("second")
+    defer print("first")
+    a = 2
+    leave 3
+    2
+}
+print(a, c)
