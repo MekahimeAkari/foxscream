@@ -174,6 +174,29 @@ class InterpObj:
         else:
             return str(self.value)
 
+    def get_class(self):
+        if self.instance:
+            return self.objclass
+        else:
+            return self
+
+    def get_all_classes(self):
+        classes = [self.get_class()]
+        for parent in self.parents:
+            parent_classes = parent.get_all_classes()
+            for parent_class in parent_classes:
+                if parent_class not in classes:
+                    classes.append(parent_class)
+        return classes
+
+    def of_op(self, other):
+        other_classes = other.get_all_classes()
+        self_classes = self.get_all_classes()
+        for self_class in self_classes:
+            if self_class in other_classes:
+                return True
+        return False
+
 @dataclass
 class ExprList(ASTNode):
     exprs: 'list'
@@ -398,8 +421,14 @@ class BinExpr(Expr):
 
     def eval(self, symbol_table):
         res = None
-        lhs = self.lhs.eval(symbol_table).value
-        rhs = self.rhs.eval(symbol_table).value
+        lhs = self.lhs.eval(symbol_table)
+        if self.operator != BinOp.OF and self.operator != BinOp.HAS:
+            lhs = lhs.value if lhs is not None else symbol_table.find("null")
+        if self.operator != BinOp.AND and self.operator != BinOp.OR:
+            rhs = self.rhs.eval(symbol_table)
+            if self.operator != BinOp.OF and self.operator != BinOp.HAS:
+                rhs = rhs.value if rhs is not None else symbol_table.find("null")
+
         if self.operator == BinOp.ADD:
             res = lhs + rhs
         elif self.operator == BinOp.SUB:
@@ -437,11 +466,23 @@ class BinExpr(Expr):
         elif self.operator == BinOp.LE:
             res = lhs <= rhs
         elif self.operator == BinOp.AND:
-            res = lhs and rhs
+            res = lhs
+            if lhs is True:
+                rhs = self.rhs.eval(symbol_table)
+                if rhs is None:
+                    rhs = symbol_table.find("null")
+                res = lhs and rhs
         elif self.operator == BinOp.OR:
-            res = lhs or rhs
+            res = lhs
+            if lhs is False:
+                rhs = self.rhs.eval(symbol_table)
+                if rhs is None:
+                    rhs = symbol_table.find("null")
+                res = lhs or rhs
+        elif self.operator == BinOp.OF:
+            return lhs.of_op(rhs)
         else:
-            raise Exception("unimplemented")
+            raise Exception("Unimplemented operator " + self.operator)
         return InterpObj("intermediate", value=res)
 
 class UnOp(Enum):

@@ -208,9 +208,9 @@ class Lexer:
     def get_lexeme(self):
         return self.text[self.start:self.cur]
 
-    def add_token(self, token_type, trim_quotes=False):
+    def add_token(self, token_type):
         lexeme = self.get_lexeme()
-        if trim_quotes:
+        if token_type == TokenType.STRING:
             lexeme = lexeme[1:-1]
         self.token_list.append(Token(token_type, lexeme, self.start_col, self.start_line))
         self.new_lexeme()
@@ -362,11 +362,15 @@ class Lexer:
                 self.add_token(ttype)
             elif char == "'" or char == '"':
                 start_quote = char
+                while self.cur_input() != start_quote:
+                    escape = False
+                    if self.cur_input() == "\\":
+                        escape = True
+                    self.advance()
+                    if escape:
+                        self.advance()
                 self.advance()
-                while self.match(lambda x: x != start_quote) or self.match_char("\\" + start_quote):
-                    pass
-                self.advance()
-                self.add_token(TokenType.STRING, trim_quotes=True)
+                self.add_token(TokenType.STRING)
             elif char in string.ascii_letters or char in ["_"]:
                 ttype = TokenType.NAME
                 while self.match(lambda x: x in string.ascii_letters or x in string.digits or x in ["_"]):

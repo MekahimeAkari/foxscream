@@ -332,7 +332,7 @@ test(2, [1, 2]) # prints "1", "2"
 test(2, []) # prints "nah"
 ```
 
-## of NOT IMPLEMENTED
+## of
 
 `of` is a type-checking statement, to be used similarly to Python's `isinstance` but less ugly.
 

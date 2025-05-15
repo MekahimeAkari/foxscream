@@ -358,7 +358,8 @@ class Parser:
         lhs = self.bitor()
         compops = {TokenType.GE: BinOp.GE, TokenType.LE: BinOp.LE,
                    TokenType.GT: BinOp.GT, TokenType.LT: BinOp.LT,
-                   TokenType.EQUALEQUAL: BinOp.EQ, TokenType.BANGEQUAL: BinOp.NE}
+                   TokenType.EQUALEQUAL: BinOp.EQ, TokenType.BANGEQUAL: BinOp.NE,
+                   TokenType.OF: BinOp.OF, TokenType.HAS: BinOp.HAS}
         while self.match(*compops.keys()):
             op = self.getop(compops)
             rhs = self.bitor()
