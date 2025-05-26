@@ -215,6 +215,9 @@ class ExprList(ASTNode):
     def lprint(self):
         return "({})".format("\n, ".join([x.lprint() for x in self.exprs]))
 
+    def visit(self, interp):
+        return interp.exprlist(self)
+
 @dataclass
 class Expr(ASTNode):
     pass
@@ -223,6 +226,9 @@ class Expr(ASTNode):
 class EmptyExpr(Expr):
     def eval(self, symbol_table):
         return
+
+    def visit(self, interp):
+        return interp.empty(self)
 
 @dataclass
 class Block(Expr):
@@ -240,6 +246,8 @@ class Block(Expr):
                 symbol_table.symbols[name] = symbol
         return ret
 
+    def visit(self, interp):
+        return interp.block(self)
 
 class Primary(Expr):
     pass
@@ -254,6 +262,9 @@ class Name(Primary):
     def eval(self, symbol_table):
         return self.name
 
+    def visit(self, interp):
+        return interp.name(self)
+
 @dataclass
 class Literal(Primary):
     pass
@@ -263,6 +274,9 @@ class Literal(Primary):
 
     def eval(self, symbol_table):
         return self.value
+
+    def visit(self, interp):
+        return interp.literal(self)
 
 @dataclass
 class StringLiteral(Literal):
@@ -303,9 +317,15 @@ class Call(Expr):
         call_args = [x.eval(symbol_table) for x in self.args]
         return obj.call(symbol_table, *call_args)
 
+    def visit(self, interp):
+        return interp.call(self)
+
 @dataclass
 class Slice(Expr):
     pass
+
+    def visit(self, interp):
+        return interp.slice(self)
 
 @dataclass
 class Field(Expr):
@@ -323,6 +343,9 @@ class Field(Expr):
             obj_symbol_table.symbols[field_name] = assign_expr
             return obj_symbol_table.symbols[field_name]
 
+    def visit(self, interp):
+        return interp.field(self)
+
 @dataclass
 class Accessor(Expr):
     access_type: Call | Slice | Field
@@ -338,6 +361,9 @@ class Accessor(Expr):
         return self.next_accessor.eval(symbol_table,
             self.access_type.eval(obj.symbol_table, obj), assign=assign,
                                                           assign_expr=assign_expr)
+
+    def visit(self, interp):
+        return interp.accessor(self)
 
 @dataclass
 class Primary(Expr):
@@ -365,6 +391,9 @@ class Primary(Expr):
         else:
             return symbol_table.find(name, throw=True)
 
+    def visit(self, interp):
+        return interp.primary(self)
+
 class AssignOp(Enum):
     NORMAL = auto()
 
@@ -380,6 +409,9 @@ class AssignExpr(Expr):
     def eval(self, symbol_table):
         return self.target.eval(symbol_table, assign=True,
                                 assign_expr=self.expr.eval(symbol_table))
+
+    def visit(self, interp):
+        return interp.assign(self)
 
 class BinOp(Enum):
     ADD = auto()
@@ -485,6 +517,9 @@ class BinExpr(Expr):
             raise Exception("Unimplemented operator " + self.operator)
         return InterpObj("intermediate", value=res)
 
+    def visit(self, interp):
+        return interp.binexpr(self)
+
 class UnOp(Enum):
     NEG = auto()
     POS = auto()
@@ -513,6 +548,9 @@ class UnExpr(Expr):
             raise Exception("unimplemented")
         return InterpObj("intermediate", value=res)
 
+    def visit(self, interp):
+        return interp.unexpr(self)
+
 @dataclass
 class SingleKWExpr(Expr):
     target: Expr | None
@@ -532,6 +570,9 @@ class ReturnExpr(SingleKWExpr):
         symbol_table.scope_return(ret_val_called, ret_val)
         return ret_val
 
+    def visit(self, interp):
+        return interp.returnexpr(self)
+
 @dataclass
 class BreakExpr(SingleKWExpr):
     def lprint(self):
@@ -543,6 +584,9 @@ class BreakExpr(SingleKWExpr):
             ret_val = self.expr.eval(symbol_table)
         symbol_table.scope_break()
         return ret_val
+
+    def visit(self, interp):
+        return interp.breakexpr(self)
 
 @dataclass
 class ContinueExpr(SingleKWExpr):
@@ -556,6 +600,9 @@ class ContinueExpr(SingleKWExpr):
         symbol_table.scope_continue()
         return ret_val
 
+    def visit(self, interp):
+        return interp.continueexpr(self)
+
 @dataclass
 class LeaveExpr(SingleKWExpr):
     def lprint(self):
@@ -568,6 +615,9 @@ class LeaveExpr(SingleKWExpr):
         symbol_table.scope_leave()
         return ret_val
 
+    def visit(self, interp):
+        return interp.leaveexpr(self)
+
 @dataclass
 class DeferExpr(SingleKWExpr):
     def lprint(self):
@@ -576,15 +626,21 @@ class DeferExpr(SingleKWExpr):
     def eval(self, symbol_table):
         symbol_table.add_defer(self.expr)
 
+    def visit(self, interp):
+        return interp.leaveexpr(self)
+
 @dataclass
 class YieldExpr(SingleKWExpr):
     def lprint(self):
         return "({} {}{})".format("yield", self.expr.lprint(), "" if self.target is None else " to {}".format(self.target.lprint()))
 
+    def visit(self, interp):
+        return interp.yieldexpr(self)
+
 @dataclass
 class IfExpr(Expr):
-    ifguard: Expr
-    ifexpr: Expr
+    guard: Expr
+    expr: Expr
     elifexprs: None
     elseexpr: None
 
@@ -595,11 +651,11 @@ class IfExpr(Expr):
         else_lprint = ""
         if self.elseexpr:
             else_lprint = " " + self.elseexpr.lprint()
-        return "(if {} {}{}{})".format(self.ifguard.lprint(), self.ifexpr.lprint(), elif_lprint, else_lprint)
+        return "(if {} {}{}{})".format(self.guard.lprint(), self.expr.lprint(), elif_lprint, else_lprint)
 
     def eval(self, symbol_table):
-        if self.ifguard.eval(symbol_table).value is True:
-            return self.ifexpr.eval(symbol_table.new())
+        if self.guard.eval(symbol_table).value is True:
+            return self.expr.eval(symbol_table.new())
         if self.elifexprs is not None:
             for elifexpr in self.elifexprs:
                 elif_res, el_ran = elifexpr.eval(symbol_table)
@@ -607,6 +663,9 @@ class IfExpr(Expr):
                     return elif_res
         if self.elseexpr is not None:
             return self.elseexpr.eval(symbol_table)
+
+    def visit(self, interp):
+        return interp.ifexpr(self)
 
 @dataclass
 class ElifExpr(Expr):
@@ -619,6 +678,9 @@ class ElifExpr(Expr):
     def eval(self, symbol_table):
         return None, False if self.guard.eval(symbol_table).value is not True else self.expr.eval(symbol_table.new()), True
 
+    def visit(self, interp):
+        return interp.elifexpr(self)
+
 @dataclass
 class ElseExpr(Expr):
     expr: Expr
@@ -628,6 +690,9 @@ class ElseExpr(Expr):
 
     def eval(self, symbol_table):
         return self.expr.eval(symbol_table.new())
+
+    def visit(self, interp):
+        return interp.elseexpr(self)
 
 class ClassType(Enum):
     CLASS = auto()
@@ -678,6 +743,9 @@ class ClassDecl(Expr):
         class_obj.instance_symbol_table.parent = symbol_table
         return class_obj
 
+    def visit(self, interp):
+        return interp.classdecl(self)
+
 @dataclass
 class FnDecl(Expr):
     name: Name
@@ -703,6 +771,9 @@ class FnDecl(Expr):
             funcobj.name = name
         return funcobj
 
+    def visit(self, interp):
+        return interp.fndecl(self)
+
 @dataclass
 class MatchExpr(Expr):
     init_expr: Expr
@@ -710,6 +781,9 @@ class MatchExpr(Expr):
 
     def lprint(self):
         return "(match {} {})".format(self.init_expr.lprint(), ", ".join([x.lprint() for x in self.cases]))
+
+    def visit(self, interp):
+        return interp.matchexpr(self)
 
 @dataclass
 class CaseExpr(Expr):
@@ -719,6 +793,9 @@ class CaseExpr(Expr):
 
     def lprint(self):
         return "case {}:{}".format("default" if self.default else self.match.lprint(), self.expr.lprint())
+
+    def visit(self, interp):
+        return interp.caseexpr(self)
 
 @dataclass
 class ForExpr(Expr):
@@ -754,6 +831,9 @@ class ForExpr(Expr):
         if self.elseexpr is not None:
             return self.elseexpr.eval(symbol_table)
 
+    def visit(self, interp):
+        return interp.forexpr(self)
+
 @dataclass
 class ElforExpr(Expr):
     iter_name: Name
@@ -777,6 +857,9 @@ class ElforExpr(Expr):
             last_expr = self.expr.eval(symbol_table_loop)
             iter_pos += 1
         return last_expr, loop_ran
+
+    def visit(self, interp):
+        return interp.elforexpr(self)
 
 @dataclass
 class WhileExpr(Expr):
@@ -805,6 +888,9 @@ class WhileExpr(Expr):
         if self.elseexpr is not None:
             return self.elseexpr.eval(symbol_table)
 
+    def visit(self, interp):
+        return interp.whileexpr(self)
+
 @dataclass
 class ElwhileExpr(Expr):
     guard: Expr
@@ -822,6 +908,9 @@ class ElwhileExpr(Expr):
             last_expr = self.expr.eval(symbol_table_loop)
         return last_expr, loop_ran
 
+    def visit(self, interp):
+        return interp.elwhileexpr(self)
+
 @dataclass
 class DoWhileExpr(Expr):
     guard: Expr
@@ -837,4 +926,6 @@ class DoWhileExpr(Expr):
             last_expr = self.expr.eval(symbol_table_loop)
         return last_expr
 
+    def visit(self, interp):
+        return interp.dowhileexpr(self)
 

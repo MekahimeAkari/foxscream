@@ -459,7 +459,6 @@ class Parser:
     def parens(self):
         self.lexer.next_token()
         expr = self.req_expr()
-        print(expr)
         if not self.match(TokenType.CLOSE_PAREN):
             raise Exception("Expected ) not {}".format(self.lexer.peek()))
         self.lexer.next_token()

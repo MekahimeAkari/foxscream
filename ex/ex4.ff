@@ -46,31 +46,31 @@ outer: {
     }
 }
 
-class chicken;
+#class chicken;
 
-class milk;
+#class milk;
 
-class cheese of milk {}
+#class cheese of milk {}
 
-class fries of cheese, chicken {}
+#class fries of cheese, chicken {}
 
-fn cheeseboi(a, b) return a + b
+#fn cheeseboi(a, b) return a + b
 
-fn cheesos() {
-    while a != 2
-    {
-        print(a)
-        a = a + 1
-    }
-}
+#fn cheesos() {
+#    while a != 2
+#    {
+#        print(a)
+#        a = a + 1
+#    }
+#}
 
-fn cheee() { a = 1; a = a + 1; yield a; }
+#fn cheee() { a = 1; a = a + 1; yield a; }
 
-match cheee():
-{
-    1: { print(2); a = 2; }
-    2 or 4: print(1)
-    _: print("a")
-}
+#match cheee():
+#{
+#    1: { print(2); a = 2; }
+#    2 or 4: print(1)
+#    _: print("a")
+#}
 
 # comment
