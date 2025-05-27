@@ -215,8 +215,8 @@ class ExprList(ASTNode):
     def lprint(self):
         return "({})".format("\n, ".join([x.lprint() for x in self.exprs]))
 
-    def visit(self, interp):
-        return interp.exprlist(self)
+    def visit(self, interp, **kwargs):
+        return interp.exprlist(self, **kwargs)
 
 @dataclass
 class Expr(ASTNode):
@@ -227,8 +227,8 @@ class EmptyExpr(Expr):
     def eval(self, symbol_table):
         return
 
-    def visit(self, interp):
-        return interp.empty(self)
+    def visit(self, interp, **kwargs):
+        return interp.empty(self, **kwargs)
 
 @dataclass
 class Block(Expr):
@@ -246,8 +246,8 @@ class Block(Expr):
                 symbol_table.symbols[name] = symbol
         return ret
 
-    def visit(self, interp):
-        return interp.block(self)
+    def visit(self, interp, **kwargs):
+        return interp.block(self, **kwargs)
 
 class Primary(Expr):
     pass
@@ -262,8 +262,8 @@ class Name(Primary):
     def eval(self, symbol_table):
         return self.name
 
-    def visit(self, interp):
-        return interp.name(self)
+    def visit(self, interp, **kwargs):
+        return interp.name(self, **kwargs)
 
 @dataclass
 class Literal(Primary):
@@ -275,36 +275,54 @@ class Literal(Primary):
     def eval(self, symbol_table):
         return self.value
 
-    def visit(self, interp):
-        return interp.literal(self)
-
 @dataclass
 class StringLiteral(Literal):
     value: str
+
+    def visit(self, interp, **kwargs):
+        return interp.stringlit(self, **kwargs)
 
 @dataclass
 class IntLiteral(Literal):
     value: int
 
+    def visit(self, interp, **kwargs):
+        return interp.intlit(self, **kwargs)
+
 @dataclass
 class FloatLiteral(Literal):
     value: float
+
+    def visit(self, interp, **kwargs):
+        return interp.floatlit(self, **kwargs)
 
 @dataclass
 class BoolLiteral(Literal):
     value: bool
 
+    def visit(self, interp, **kwargs):
+        return interp.boollit(self, **kwargs)
+
 @dataclass
 class NullLiteral(Literal):
     value: None
+
+    def visit(self, interp, **kwargs):
+        return interp.nulllit(self, **kwargs)
 
 @dataclass
 class ArrayLiteral(Literal):
     value: list
 
+    def visit(self, interp, **kwargs):
+        return interp.arrlit(self, **kwargs)
+
 @dataclass
 class DictLiteral(Literal):
     value: dict
+
+    def visit(self, interp, **kwargs):
+        return interp.dictlit(self, **kwargs)
 
 @dataclass
 class Call(Expr):
@@ -324,8 +342,8 @@ class Call(Expr):
 class Slice(Expr):
     pass
 
-    def visit(self, interp):
-        return interp.slice(self)
+    def visit(self, interp, **kwargs):
+        return interp.slice(self, **kwargs)
 
 @dataclass
 class Field(Expr):
@@ -343,8 +361,8 @@ class Field(Expr):
             obj_symbol_table.symbols[field_name] = assign_expr
             return obj_symbol_table.symbols[field_name]
 
-    def visit(self, interp):
-        return interp.field(self)
+    def visit(self, interp, **kwargs):
+        return interp.field(self, **kwargs)
 
 @dataclass
 class Accessor(Expr):
@@ -362,8 +380,8 @@ class Accessor(Expr):
             self.access_type.eval(obj.symbol_table, obj), assign=assign,
                                                           assign_expr=assign_expr)
 
-    def visit(self, interp):
-        return interp.accessor(self)
+    def visit(self, interp, **kwargs):
+        return interp.accessor(self, **kwargs)
 
 @dataclass
 class Primary(Expr):
@@ -391,8 +409,8 @@ class Primary(Expr):
         else:
             return symbol_table.find(name, throw=True)
 
-    def visit(self, interp):
-        return interp.primary(self)
+    def visit(self, interp, **kwargs):
+        return interp.primary(self, **kwargs)
 
 class AssignOp(Enum):
     NORMAL = auto()
