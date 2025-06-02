@@ -10,7 +10,7 @@ from astree import Literal, StringLiteral, IntLiteral, FloatLiteral, BoolLiteral
 from astree import Call, Slice, Field, Accessor, AssignOp, AssignExpr
 from astree import BinOp, BinExpr, UnOp, UnExpr
 from astree import ReturnExpr, BreakExpr, LeaveExpr, ContinueExpr, DeferExpr, YieldExpr
-from astree import IfExpr, ElifExpr, ElseExpr, Block, FnDecl, WhileExpr, DoWhileExpr, ForExpr, ElforExpr, ElwhileExpr
+from astree import IfExpr, ElseExpr, Block, FnDecl, WhileExpr, DoWhileExpr, ForExpr
 from astree import ClassType, ClassDecl, MatchExpr, CaseExpr
 
 class Parser:
@@ -156,31 +156,24 @@ class Parser:
         guard = self.arith()
         return DoWhileExpr(guard, expr)
 
-    def elexprs(self):
-        elexprs_funcs = {
-            TokenType.ELIF: self.elifexpr,
-            TokenType.ELFOR: self.elforexpr,
-            TokenType.ELWHILE: self.elwhileexpr
+    def elexpr(self):
+        elexpr_funcs = {
+            TokenType.ELIF: self.ifexpr,
+            TokenType.ELFOR: self.forexpr,
+            TokenType.ELWHILE: self.whileexpr,
+            TokenType.ELSE: self.elseexpr
         }
 
-        elexprs = []
-        while self.match(*elexprs_funcs.keys()):
-            func = elexprs_funcs[self.lexer.next_token().ttype]
-            elexprs.append(func())
-        return elexprs
+        if self.match(*elexpr_funcs.keys()):
+            return elexpr_funcs[self.lexer.peek().ttype]()
+        return None
 
     def whileexpr(self):
         self.lexer.next_token()
         guard = self.arith()
         expr = self.req_expr()
-        elexprs = self.elexprs()
-        elseexpr = self.elseexpr()
-        return WhileExpr(guard, expr, elexprs, elseexpr)
-
-    def elwhileexpr(self):
-        guard = self.arith()
-        expr = self.req_expr()
-        return ElwhileExpr(guard, expr)
+        elexpr = self.elexpr()
+        return WhileExpr(guard, expr, elexpr)
 
     def forexpr(self):
         self.lexer.next_token()
@@ -192,41 +185,20 @@ class Parser:
         self.lexer.next_token()
         iter_expr = self.req_expr()
         expr = self.req_expr()
-        elexprs = self.elexprs()
-        elseexpr = self.elseexpr()
-        return ForExpr(iter_name, iter_expr, expr, elexprs, elseexpr)
-
-    def elforexpr(self):
-        if not self.match(TokenType.NAME):
-            raise Exception("Expected name")
-        iter_name = self.nameexpr()
-        if not self.match(TokenType.IN):
-            raise Exception("Expected in")
-        self.lexer.next_token()
-        iter_expr = self.req_expr()
-        expr = self.req_expr()
-        return ElforExpr(iter_name, iter_expr, expr)
+        elexpr = self.elexpr()
+        return ForExpr(iter_name, iter_expr, expr, elexpr)
 
     def ifexpr(self):
         self.lexer.next_token()
         ifguard = self.arith()
         ifexpr = self.req_expr()
-        elexprs = self.elexprs()
-        elseexpr = self.elseexpr()
-        return IfExpr(ifguard, ifexpr, elexprs, elseexpr)
-
-    def elifexpr(self):
-        guard = self.arith()
-        expr = self.req_expr()
-        return ElifExpr(guard, expr)
+        elexpr = self.elexpr()
+        return IfExpr(ifguard, ifexpr, elexpr)
 
     def elseexpr(self):
-        if self.match(TokenType.ELSE):
-            self.lexer.next_token()
-            expr = self.req_expr()
-            return ElseExpr(expr)
-        else:
-            return None
+        self.lexer.next_token()
+        expr = self.req_expr()
+        return ElseExpr(expr)
 
     def matchexpr(self):
         self.lexer.next_token()
@@ -499,7 +471,8 @@ class Parser:
                 if self.match(TokenType.COLON):
                     arrayconst = DictLiteral
                     self.lexer.next_token()
-                    const_values = {const_values[0]: self.req_expr()}
+                    is_dict = True
+                    const_values = {const_values[0].target.value: self.req_expr()}
                 while not self.match(TokenType.CLOSE_SQUARE):
                     if self.match(TokenType.COMMA):
                         self.lexer.next_token()
@@ -508,7 +481,7 @@ class Parser:
                         if not self.match(TokenType.COLON):
                             raise Exception("Expected :")
                         self.lexer.next_token()
-                        const_values[key_or_value] = self.req_expr()
+                        const_values[key_or_value.target.value] = self.req_expr()
                     else:
                         const_values.append(key_or_value)
         self.lexer.next_token()

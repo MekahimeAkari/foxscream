@@ -79,6 +79,12 @@ class Environment:
         self.lit_num += 1
         return ret_num
 
+    def descend(self):
+        return Environment(enclosing=self)
+
+    def ascend(self):
+        return self.enclosing
+
 class InterpreterQuitException(Exception):
     pass
 
@@ -190,10 +196,10 @@ class Interpreter:
         return self.literal(float_ele, "float")
 
     def arraylit(self, array_ele):
-        return self.literal(array_ele, "array")
+        return self.literal_literal([x.visit(self) for x in array_ele.value], "array")
 
     def dictlit(self, dict_ele):
-        return self.literal(dict_ele, "dict")
+        return self.literal_literal({k:v.visit(self) for k, v in dict_ele.value.items()}, "dict")
 
     def boollit(self, bool_ele):
         if bool_ele.value is True:
@@ -309,21 +315,49 @@ class Interpreter:
     def ifexpr(self, ifexpr_ele):
         if ifexpr_ele.guard.visit(self) is self.environment.get("true"):
             return ifexpr_ele.expr.visit(self)
-        if ifexpr_ele.elifexprs is not None:
-            for elifexpr in ifexpr_ele.elifexprs:
-                if elifexpr.guard.visit(self) is self.environment.get("true"):
-                    return elifexpr.expr.visit(self)
-        if ifexpr_ele.elseexpr is not None:
-            return ifexpr_ele.elseexpr.visit(self)
-
-    def elifexpr(self, elifexpr_ele):
-        return elifexpr_ele.expr.visit(self)
+        if ifexpr_ele.elexpr is not None:
+            return ifexpr_ele.elexpr.visit(self)
 
     def elseexpr(self, elseexpr_ele):
         return elseexpr_ele.expr.visit(self)
 
     def forexpr(self, forexpr_ele):
-       raise Exception("unimplemented")
+        iter_pos = 0
+        iter_arr = forexpr_ele.iter_expr.visit(self).fields["value"]
+        iter_name = forexpr_ele.iter_name.name
+        last_expr = self.environment.get("null")
+        loop_ran = False
+        while iter_pos < len(iter_arr):
+            loop_ran = True
+            iter_val = iter_arr[iter_pos]
+            self.environment.assign(iter_name, iter_val, immediate=True)
+            last_expr = forexpr_ele.expr.visit(self)
+            iter_pos += 1
+        if not loop_ran and forexpr_ele.elexpr is not None:
+            return forexpr_ele.elexpr.visit(self)
+        return last_expr
+
+    def whileexpr(self, whileexpr_ele):
+        last_expr = self.environment.get("null")
+        loop_ran = False
+        while whileexpr_ele.guard.visit(self) is self.environment.get("true"):
+            loop_ran = True
+            last_expr = whileexpr_ele.expr.visit(self)
+        if not loop_ran and whileexpr_ele.elexpr is not None:
+            return whileexpr_ele.elexpr.visit(self)
+        return last_expr
+
+    def dowhileexpr(self, dowhileexpr_ele):
+        last_expr = dowhileexpr_ele.expr.visit(self)
+        while dowhileexpr_ele.guard.visit(self) is self.environment.get("true"):
+            last_expr = dowhileexpr_ele.expr.visit(self)
+        return last_expr
+
+    def block(self, block_ele):
+        self.environment = self.environment.descend()
+        ret_expr = block_ele.exprs.visit(self)
+        self.environment = self.environment.ascend()
+        return ret_expr
 
 if __name__ == "__main__":
     interp = Interpreter()

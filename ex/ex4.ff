@@ -31,20 +31,23 @@ cheese = [1, 2, 3]
 
 for i in cheese print(i)
 
-outer: {
-    for i in cheese
-    {
-        while zz40 == 0
-            print(zz40)
+fries = ["s": 1, "d": 2]
+print(fries)
 
-        do print(zz40) while zz40 == 0
-
-        if i == 7
-            break zz3 to outer
-
-        defer a = 2
-    }
-}
+#outer: {
+#    for i in cheese
+#    {
+#        while zz40 == 0
+#            print(zz40)
+#
+#        do print(zz40) while zz40 == 0
+#
+#        if i == 7
+#            break zz3 to outer
+#
+#        defer a = 2
+#    }
+#}
 
 #class chicken;
 

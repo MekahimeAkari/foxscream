@@ -315,7 +315,7 @@ class ArrayLiteral(Literal):
     value: list
 
     def visit(self, interp, **kwargs):
-        return interp.arrlit(self, **kwargs)
+        return interp.arraylit(self, **kwargs)
 
 @dataclass
 class DictLiteral(Literal):
@@ -659,17 +659,10 @@ class YieldExpr(SingleKWExpr):
 class IfExpr(Expr):
     guard: Expr
     expr: Expr
-    elifexprs: None
-    elseexpr: None
+    elexpr: None = None
 
     def lprint(self):
-        elif_lprint = ""
-        if self.elifexprs:
-            elif_lprint = " " + " ".join([x.lprint() for x in self.elifexprs])
-        else_lprint = ""
-        if self.elseexpr:
-            else_lprint = " " + self.elseexpr.lprint()
-        return "(if {} {}{}{})".format(self.guard.lprint(), self.expr.lprint(), elif_lprint, else_lprint)
+        return "(if {} {} {})".format(self.guard.lprint(), self.expr.lprint(), self.elexpr.lprint() if self.elexpr is not None else "")
 
     def eval(self, symbol_table):
         if self.guard.eval(symbol_table).value is True:
@@ -686,25 +679,11 @@ class IfExpr(Expr):
         return interp.ifexpr(self)
 
 @dataclass
-class ElifExpr(Expr):
-    guard: Expr
-    expr: Expr
-
-    def lprint(self):
-        return "elif {} {}".format(self.guard.lprint(), self.expr.lprint())
-
-    def eval(self, symbol_table):
-        return None, False if self.guard.eval(symbol_table).value is not True else self.expr.eval(symbol_table.new()), True
-
-    def visit(self, interp):
-        return interp.elifexpr(self)
-
-@dataclass
 class ElseExpr(Expr):
     expr: Expr
 
     def lprint(self):
-        return "else {}".format(self.expr.lprint())
+        return "(else {})".format(self.expr.lprint())
 
     def eval(self, symbol_table):
         return self.expr.eval(symbol_table.new())
@@ -820,11 +799,10 @@ class ForExpr(Expr):
     iter_name: Name
     iter_expr: Expr
     expr: Expr
-    elexprs: None = None
-    elseexpr: None = None
+    elexpr: None = None
 
     def lprint(self):
-        return "(for {} in {} {})".format(self.iter_name.lprint(), self.iter_expr, self.expr.lprint())
+        return "(for {} in {} {} {})".format(self.iter_name.lprint(), self.iter_expr, self.expr.lprint(), self.elexpr.lprint() if self.elexpr is not None else "")
 
     def eval(self, symbol_table):
         iter_pos = 0
@@ -853,41 +831,13 @@ class ForExpr(Expr):
         return interp.forexpr(self)
 
 @dataclass
-class ElforExpr(Expr):
-    iter_name: Name
-    iter_expr: Expr
-    expr: Expr
-
-    def lprint(self):
-        return "(elfor {} in {} {})".format(self.iter_name.lprint(), self.iter_expr, self.expr.lprint())
-
-    def eval(self, symbol_table):
-        iter_pos = 0
-        iter_arr = self.iter_expr.eval(symbol_table).value
-        iter_name = self.iter_name.eval(symbol_table)
-        last_expr = None
-        symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
-        loop_ran = False
-        while (iter_pos < len(iter_arr) and not symbol_table_loop.break_called):
-            loop_ran = True
-            iter_val = iter_arr[iter_pos].eval(symbol_table)
-            symbol_table_loop.bind(iter_name, InterpObj(iter_name, value=iter_val))
-            last_expr = self.expr.eval(symbol_table_loop)
-            iter_pos += 1
-        return last_expr, loop_ran
-
-    def visit(self, interp):
-        return interp.elforexpr(self)
-
-@dataclass
 class WhileExpr(Expr):
     guard: Expr
     expr: Expr
-    elexprs: None = None
-    elseexpr: None = None
+    elexpr: None = None
 
     def lprint(self):
-        return "(while {} {})".format(self.guard.lprint(), self.expr.lprint())
+        return "(while {} {} {})".format(self.guard.lprint(), self.expr.lprint(), self.elexpr.lprint() if self.elexpr is not None else "")
 
     def eval(self, symbol_table):
         last_expr = None
@@ -908,26 +858,6 @@ class WhileExpr(Expr):
 
     def visit(self, interp):
         return interp.whileexpr(self)
-
-@dataclass
-class ElwhileExpr(Expr):
-    guard: Expr
-    expr: Expr
-
-    def lprint(self):
-        return "(elwhile {} {})".format(self.guard.lprint(), self.expr.lprint())
-
-    def eval(self, symbol_table):
-        last_expr = None
-        symbol_table_loop = symbol_table.new(enclosing_loop_scope=True)
-        loop_ran = False
-        while self.guard.eval(symbol_table).value is True and not symbol_table_loop.break_called:
-            loop_ran = True
-            last_expr = self.expr.eval(symbol_table_loop)
-        return last_expr, loop_ran
-
-    def visit(self, interp):
-        return interp.elwhileexpr(self)
 
 @dataclass
 class DoWhileExpr(Expr):
