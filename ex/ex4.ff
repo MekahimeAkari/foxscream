@@ -34,20 +34,20 @@ for i in cheese print(i)
 fries = ["s": 1, "d": 2]
 print(fries)
 
-#outer: {
-#    for i in cheese
-#    {
-#        while zz40 == 0
-#            print(zz40)
-#
-#        do print(zz40) while zz40 == 0
-#
-#        if i == 7
-#            break zz3 to outer
-#
-#        defer a = 2
-#    }
-#}
+outer: {
+    for i in cheese
+    {
+        while zz40 == 0
+            print(zz40)
+
+        do print(zz40) while zz40 == 0
+
+        if i == 7
+            break zz3 to outer
+
+        defer a = 17
+    }
+}
 
 #class chicken;
 

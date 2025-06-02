@@ -51,6 +51,12 @@ class Parser:
             raise Exception("Expected expression")
         return expr
 
+    def req_scope_expr(self):
+        expr = self.req_expr()
+        if not isinstance(expr, Block):
+            return Block(None, expr)
+        return expr
+
     def match(self, *ttypes):
         peek_distance = 0
         if self.lexer.peek(peek_distance).ttype in ttypes:
@@ -139,7 +145,7 @@ class Parser:
         target = None
         expr = None
         if not self.lexer.peek().is_end() and not self.match(TokenType.TO):
-            expr = self.req_expr()
+            expr = self.req_scope_expr()
         if self.match(TokenType.TO):
             self.lexer.next_token()
             if not self.match(TokenType.NAME):
@@ -149,7 +155,7 @@ class Parser:
 
     def dowhileexpr(self):
         self.lexer.next_token()
-        expr = self.req_expr()
+        expr = self.req_scope_expr()
         if not self.match(TokenType.WHILE):
             raise Exception("Expected while")
         self.lexer.next_token()
@@ -171,7 +177,7 @@ class Parser:
     def whileexpr(self):
         self.lexer.next_token()
         guard = self.arith()
-        expr = self.req_expr()
+        expr = self.req_scope_expr()
         elexpr = self.elexpr()
         return WhileExpr(guard, expr, elexpr)
 
@@ -183,7 +189,7 @@ class Parser:
         if not self.match(TokenType.IN):
             raise Exception("Expected in")
         self.lexer.next_token()
-        iter_expr = self.req_expr()
+        iter_expr = self.req_scope_expr()
         expr = self.req_expr()
         elexpr = self.elexpr()
         return ForExpr(iter_name, iter_expr, expr, elexpr)
@@ -191,13 +197,13 @@ class Parser:
     def ifexpr(self):
         self.lexer.next_token()
         ifguard = self.arith()
-        ifexpr = self.req_expr()
+        ifexpr = self.req_scope_expr()
         elexpr = self.elexpr()
         return IfExpr(ifguard, ifexpr, elexpr)
 
     def elseexpr(self):
         self.lexer.next_token()
-        expr = self.req_expr()
+        expr = self.req_scope_expr()
         return ElseExpr(expr)
 
     def matchexpr(self):
@@ -221,7 +227,7 @@ class Parser:
             if not self.match(TokenType.COLON):
                 raise Exception("Expected :")
             self.lexer.next_token()
-            case_expr = self.req_expr()
+            case_expr = self.req_scope_expr()
             cases.append(CaseExpr(case_guard, case_expr, default))
         self.lexer.next_token()
         return MatchExpr(expr, cases)
@@ -244,7 +250,7 @@ class Parser:
                 raise Exception("Expected , or )")
             self.lexer.next_token()
         self.lexer.next_token()
-        fnexpr = self.req_expr()
+        fnexpr = self.req_scope_expr()
         return FnDecl(name, args, fnexpr)
 
     def classdecl(self):
@@ -273,7 +279,7 @@ class Parser:
                 parents.append(self.nameexpr())
         expr = None
         if not self.match(TokenType.SEMICOLON):
-            expr = self.req_expr()
+            expr = self.req_scope_expr()
         else:
             self.lexer.next_token()
         return ClassDecl(classtype, name, parents, expr)

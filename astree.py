@@ -645,7 +645,7 @@ class DeferExpr(SingleKWExpr):
         symbol_table.add_defer(self.expr)
 
     def visit(self, interp):
-        return interp.leaveexpr(self)
+        return interp.deferexpr(self)
 
 @dataclass
 class YieldExpr(SingleKWExpr):

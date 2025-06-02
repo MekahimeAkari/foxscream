@@ -45,6 +45,11 @@ class Environment:
     symbols: dict = field(default_factory=dict)
     enclosing: 'Environment' = None
     lit_num: int = 0
+    label: None = None
+    func_scope: bool = False
+    loop_scope: bool = False
+    break_called: bool = False
+    defer_exprs: list = field(default_factory=list)
 
     def get(self, name, can_fail=False):
         if name in self.symbols:
@@ -79,11 +84,37 @@ class Environment:
         self.lit_num += 1
         return ret_num
 
-    def descend(self):
-        return Environment(enclosing=self)
+    def descend(self, label=None):
+        return Environment(enclosing=self, label=label)
 
     def ascend(self):
         return self.enclosing
+
+    def do_break(self, label=None):
+        self.break_called = True
+        if label is not None:
+            if self.label != label and self.enclosing is not None:
+                self.enclosing.do_break(label=label)
+            else:
+                raise Exception("No labeled block " + label)
+        elif self.enclosing is not None and self.loop_scope is False:
+            self.enclosing.do_break(label=label)
+
+    def do_leave(self, label=None):
+        self.break_called = True
+        if label is not None:
+            if self.label != label and self.enclosing is not None:
+                self.enclosing.do_leave(label=label)
+            else:
+                raise Exception("No labeled block " + label)
+
+    def do_return(self):
+        self.break_called = True
+        if self.enclosing is not None and self.func_scope is False:
+            self.enclosing.do_return()
+
+    def add_defer(self, expr):
+        self.defer_exprs.insert(0, expr)
 
 class InterpreterQuitException(Exception):
     pass
@@ -356,8 +387,14 @@ class Interpreter:
     def block(self, block_ele):
         self.environment = self.environment.descend()
         ret_expr = block_ele.exprs.visit(self)
+        if len(self.environment.defer_exprs) > 0:
+            for defer_expr in self.environment.defer_exprs:
+                ret_expr = defer_expr.visit(self)
         self.environment = self.environment.ascend()
         return ret_expr
+
+    def deferexpr(self, defer_ele):
+        self.environment.add_defer(defer_ele.expr)
 
 if __name__ == "__main__":
     interp = Interpreter()
