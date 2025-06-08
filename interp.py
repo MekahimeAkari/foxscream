@@ -11,16 +11,6 @@ from dataclasses import dataclass, field
 from astree import SymbolTable, ASTNode, InterpObj, BinOp
 
 @dataclass
-class FSFunc:
-    args: 'Environment'
-    closure: 'Environment'
-    body: ASTNode
-
-@dataclass
-class FSConstructor(FSFunc):
-    ret_class: 'FSObject'
-
-@dataclass
 class FSObject:
     name: 'str'
     fsclass: 'FSObject' = None
@@ -35,7 +25,7 @@ class FSObject:
             self.fsclass = self
 
     def __str__(self):
-        return "{}".format(self.name) + ": {}".format(self.fields["value"]) if "value" in self.fields.keys() else ""
+        return str(self.fields["value"]) if "value" in self.fields.keys() else self.name
 
     def __repr__(self):
         return self.__str__()
@@ -50,6 +40,7 @@ class Environment:
     loop_scope: bool = False
     break_called: bool = False
     defer_exprs: list = field(default_factory=list)
+    in_assign: bool = False
 
     def get(self, name, can_fail=False):
         if name in self.symbols:
@@ -116,6 +107,30 @@ class Environment:
     def add_defer(self, expr):
         self.defer_exprs.insert(0, expr)
 
+    def push_assign(self):
+        self.in_assign = True
+
+    def pop_assign(self):
+        self.in_assign = False
+
+@dataclass
+class FSFunc:
+    args: list
+    body: ASTNode
+    closure: 'Environment' = field(default_factory=Environment)
+
+    def call(self, call_args, interp):
+        if len(call_args) != len(self.args):
+            raise Exception("Arg numbers mismatch")
+        interp.environment = interp.environment.descend()
+        for symbol_name, symbol_val in self.closure.symbols.items():
+            interp.environment.assign(symbol_name, symbol_val, immediate=True)
+        for i in range(len(call_args)):
+            interp.environment.assign(self.args[i], call_args[i], immediate=True)
+        ret = self.body.visit(interp)
+        interp.environment = interp.environment.ascend()
+        return ret
+
 class InterpreterQuitException(Exception):
     pass
 
@@ -125,12 +140,13 @@ def interpreter_quit():
 @dataclass
 class Call:
     args: list
-    next: None = None
 
-    def apply(self, callee):
-        ret = callee(*self.args)
-        if self.next is not None:
-            ret = next.apply(ret)
+    def apply(self, callee, interp):
+        ret = None
+        if isinstance(callee, FSFunc):
+            ret = callee.call(self.args, interp)
+        else:
+            ret = callee(*self.args)
         return ret
 
 @dataclass
@@ -249,7 +265,7 @@ class Interpreter:
             target = self.environment.assign(primary_ele.target.name, assign)
         target = primary_ele.target.visit(self)
         if primary_ele.accessor is not None:
-            target = primary_ele.accessor.visit(self).apply(target)
+            target = primary_ele.accessor.visit(self).apply(target, self)
         return target
 
     def accessor(self, accessor_ele):
@@ -273,7 +289,10 @@ class Interpreter:
     def assign(self, assign_ele):
         expr = assign_ele.expr.visit(self)
         operator = assign_ele.operator
-        return assign_ele.target.visit(self, assign=expr)
+        self.environment.push_assign()
+        assign_ret = assign_ele.target.visit(self, assign=expr)
+        self.environment.pop_assign()
+        return assign_ret
 
     def binexpr(self, binexpr_ele):
         lhs = binexpr_ele.lhs.visit(self).fields["value"]
@@ -358,7 +377,7 @@ class Interpreter:
         iter_name = forexpr_ele.iter_name.name
         last_expr = self.environment.get("null")
         loop_ran = False
-        while iter_pos < len(iter_arr):
+        while iter_pos < len(iter_arr) and not self.environment.break_called:
             loop_ran = True
             iter_val = iter_arr[iter_pos]
             self.environment.assign(iter_name, iter_val, immediate=True)
@@ -371,7 +390,7 @@ class Interpreter:
     def whileexpr(self, whileexpr_ele):
         last_expr = self.environment.get("null")
         loop_ran = False
-        while whileexpr_ele.guard.visit(self) is self.environment.get("true"):
+        while whileexpr_ele.guard.visit(self) is self.environment.get("true") and not self.environment.break_called:
             loop_ran = True
             last_expr = whileexpr_ele.expr.visit(self)
         if not loop_ran and whileexpr_ele.elexpr is not None:
@@ -380,12 +399,12 @@ class Interpreter:
 
     def dowhileexpr(self, dowhileexpr_ele):
         last_expr = dowhileexpr_ele.expr.visit(self)
-        while dowhileexpr_ele.guard.visit(self) is self.environment.get("true"):
+        while dowhileexpr_ele.guard.visit(self) is self.environment.get("true") and not self.environment.break_called:
             last_expr = dowhileexpr_ele.expr.visit(self)
         return last_expr
 
     def block(self, block_ele):
-        self.environment = self.environment.descend()
+        self.environment = self.environment.descend(label=block_ele.label.visit(self) if block_ele.label is not None else None)
         ret_expr = block_ele.exprs.visit(self)
         if len(self.environment.defer_exprs) > 0:
             for defer_expr in self.environment.defer_exprs:
@@ -395,6 +414,28 @@ class Interpreter:
 
     def deferexpr(self, defer_ele):
         self.environment.add_defer(defer_ele.expr)
+
+    def returnexpr(self, return_ele):
+        self.environment.do_return()
+        if return_ele.expr is not None:
+            return return_ele.expr.visit(self)
+
+    def breakexpr(self, break_ele):
+        self.environment.do_break()
+        if break_ele.expr is not None:
+            return break_ele.expr.visit(self)
+
+    def fndecl(self, fndecl_ele):
+        name = fndecl_ele.name
+        if name is not None:
+            name = name.name
+        args = [x.target.name for x in fndecl_ele.args]
+        body = fndecl_ele.expr
+        closure = Environment()
+        ret_fn = FSFunc(args, body, closure)
+        if name is not None:
+            self.environment.assign(name, ret_fn)
+        return ret_fn
 
 if __name__ == "__main__":
     interp = Interpreter()
