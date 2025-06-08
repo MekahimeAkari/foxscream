@@ -267,9 +267,8 @@ class Parser:
         name = None
         if self.match(TokenType.NAME):
             name = self.nameexpr()
-        parents = None
+        parents = []
         if self.match(TokenType.OF):
-            parents = []
             self.lexer.next_token()
             parents.append(self.nameexpr())
             while self.match(TokenType.COMMA):

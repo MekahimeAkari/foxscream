@@ -476,6 +476,16 @@ class Interpreter:
             self.environment.assign(name, ret_fn)
         return ret_fn
 
+    def classdecl(self, classdecl_ele):
+        name = classdecl_ele.name
+        if name is not None:
+            name = name.name
+        class_type = classdecl_ele.class_type
+        parents = [parent.name for parent in classdecl_ele.parents]
+        expr = classdecl_ele.expr
+        print("classdecl", name)
+        raise Exception("not done yet")
+
 if __name__ == "__main__":
     interp = Interpreter()
     source_text = ""
@@ -484,7 +494,6 @@ if __name__ == "__main__":
             source_text = source_file.read()
         print(interp.parse(source_text).lprint())
         interp.interpret(interp.parse(source_text))
-        #interp.run(source_text)
     else:
         interp_face = "<^.^>"
         print("Welcome to foxscream! This language is silly")

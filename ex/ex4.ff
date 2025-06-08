@@ -57,15 +57,15 @@ outer: {
 
 #class fries of cheese, chicken {}
 
-#fn cheeseboi(a, b) return a + b
+fn cheeseboi(a, b) return a + b
 
-#fn cheesos() {
-#    while a != 2
-#    {
-#        print(a)
-#        a = a + 1
-#    }
-#}
+fn cheesos() {
+    while a != 2
+    {
+        print(a)
+        a = a + 1
+    }
+}
 
 #fn cheee() { a = 1; a = a + 1; yield a; }
 
