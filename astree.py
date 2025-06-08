@@ -218,6 +218,12 @@ class ExprList(ASTNode):
     def visit(self, interp, **kwargs):
         return interp.exprlist(self, **kwargs)
 
+    def grab_primaries(self):
+        ret_primaries = []
+        for expr in self.exprs:
+            ret_primaries.extend(expr.grab_primaries())
+        return ret_primaries
+
 @dataclass
 class Expr(ASTNode):
     pass
@@ -229,6 +235,9 @@ class EmptyExpr(Expr):
 
     def visit(self, interp, **kwargs):
         return interp.empty(self, **kwargs)
+
+    def grab_primaries(self):
+        return []
 
 @dataclass
 class Block(Expr):
@@ -249,6 +258,9 @@ class Block(Expr):
     def visit(self, interp, **kwargs):
         return interp.block(self, **kwargs)
 
+    def grab_primaries(self):
+        return self.exprs.grab_primaries()
+
 class Primary(Expr):
     pass
 
@@ -265,6 +277,9 @@ class Name(Primary):
     def visit(self, interp, **kwargs):
         return interp.name(self, **kwargs)
 
+    def grab_primaries(self):
+        return [self.name]
+
 @dataclass
 class Literal(Primary):
     pass
@@ -274,6 +289,9 @@ class Literal(Primary):
 
     def eval(self, symbol_table):
         return self.value
+
+    def grab_primaries(self):
+        return []
 
 @dataclass
 class StringLiteral(Literal):
@@ -338,12 +356,23 @@ class Call(Expr):
     def visit(self, interp):
         return interp.call(self)
 
+    def grab_primaries(self):
+        ret_primaries = []
+        print(self.args)
+        for arg in self.args:
+            print(arg)
+            ret_primaries.extend(arg.grab_primaries())
+        return ret_primaries
+
 @dataclass
 class Slice(Expr):
     pass
 
     def visit(self, interp, **kwargs):
         return interp.slice(self, **kwargs)
+
+    def grab_primaries(self):
+        return []
 
 @dataclass
 class Field(Expr):
@@ -364,6 +393,9 @@ class Field(Expr):
     def visit(self, interp, **kwargs):
         return interp.field(self, **kwargs)
 
+    def grab_primaries(self):
+        return []
+
 @dataclass
 class Accessor(Expr):
     access_type: Call | Slice | Field
@@ -382,6 +414,12 @@ class Accessor(Expr):
 
     def visit(self, interp, **kwargs):
         return interp.accessor(self, **kwargs)
+
+    def grab_primaries(self):
+        ret_primaries = self.access_type.grab_primaries()
+        if self.next_accessor is not None:
+            ret_primaries.extend(self.next_accessor.grab_primaries())
+        return ret_primaries
 
 @dataclass
 class Primary(Expr):
@@ -412,6 +450,12 @@ class Primary(Expr):
     def visit(self, interp, **kwargs):
         return interp.primary(self, **kwargs)
 
+    def grab_primaries(self):
+        ret_primaries = self.target.grab_primaries()
+        if self.accessor is not None:
+            ret_primaries.extend(self.accessor.grab_primaries())
+        return ret_primaries
+
 class AssignOp(Enum):
     NORMAL = auto()
 
@@ -430,6 +474,9 @@ class AssignExpr(Expr):
 
     def visit(self, interp):
         return interp.assign(self)
+
+    def grab_primaries(self):
+        return self.expr.grab_primaries()
 
 class BinOp(Enum):
     ADD = auto()
@@ -538,6 +585,11 @@ class BinExpr(Expr):
     def visit(self, interp):
         return interp.binexpr(self)
 
+    def grab_primaries(self):
+        ret_primaries = self.lhs.grab_primaries()
+        ret_primaries.extend(self.rhs.grab_primaries())
+        return ret_primaries
+
 class UnOp(Enum):
     NEG = auto()
     POS = auto()
@@ -569,10 +621,19 @@ class UnExpr(Expr):
     def visit(self, interp):
         return interp.unexpr(self)
 
+    def grab_primaries(self):
+        return self.rhs.grab_primaries()
+
 @dataclass
 class SingleKWExpr(Expr):
     target: Expr | None
     expr: Expr | None
+
+    def grab_primaries(self):
+        if self.expr is None:
+            return []
+        else:
+            return self.expr.grab_primaries()
 
 @dataclass
 class ReturnExpr(SingleKWExpr):
@@ -678,6 +739,13 @@ class IfExpr(Expr):
     def visit(self, interp):
         return interp.ifexpr(self)
 
+    def grab_primaries(self):
+        ret_primaries = self.guard.grab_primaries()
+        ret_primaries.extend(self.expr.grab_primaries())
+        if self.elexpr is not None:
+            ret_primaries.extend(self.elexpr.grab_primaries())
+        return ret_primaries
+
 @dataclass
 class ElseExpr(Expr):
     expr: Expr
@@ -690,6 +758,9 @@ class ElseExpr(Expr):
 
     def visit(self, interp):
         return interp.elseexpr(self)
+
+    def grab_primaries(self):
+        return self.expr.grab_primaries()
 
 class ClassType(Enum):
     CLASS = auto()
@@ -743,6 +814,9 @@ class ClassDecl(Expr):
     def visit(self, interp):
         return interp.classdecl(self)
 
+    def grab_primaries(self):
+        return self.expr.grab_primaries()
+
 @dataclass
 class FnDecl(Expr):
     name: Name
@@ -770,6 +844,9 @@ class FnDecl(Expr):
 
     def visit(self, interp):
         return interp.fndecl(self)
+
+    def grab_primaries(self):
+        return self.expr.grab_primaries()
 
 @dataclass
 class MatchExpr(Expr):
@@ -830,6 +907,13 @@ class ForExpr(Expr):
     def visit(self, interp):
         return interp.forexpr(self)
 
+    def grab_primaries(self):
+        ret_primaries = self.iter_expr.grab_primaries()
+        ret_primaries.extend(self.expr.grab_primaries())
+        if self.elexpr is not None:
+            ret_primaries.extend(self.elexpr.grab_primaries())
+        return ret_primaries
+
 @dataclass
 class WhileExpr(Expr):
     guard: Expr
@@ -859,6 +943,13 @@ class WhileExpr(Expr):
     def visit(self, interp):
         return interp.whileexpr(self)
 
+    def grab_primaries(self):
+        ret_primaries = self.guard.grab_primaries()
+        ret_primaries.extend(self.expr.grab_primaries())
+        if self.elexpr is not None:
+            ret_primaries.extend(self.elexpr.grab_primaries())
+        return ret_primaries
+
 @dataclass
 class DoWhileExpr(Expr):
     guard: Expr
@@ -876,4 +967,9 @@ class DoWhileExpr(Expr):
 
     def visit(self, interp):
         return interp.dowhileexpr(self)
+
+    def grab_primaries(self):
+        ret_primaries = self.guard.grab_primaries()
+        ret_primaries.extend(self.expr.grab_primaries())
+        return ret_primaries
 

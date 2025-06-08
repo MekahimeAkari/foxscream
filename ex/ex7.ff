@@ -16,13 +16,18 @@ fn test2(a)
         while true
         {
             if a > 7
+            {
+                print("break")
                 break
+            }
             else
                 a = a + 1
             print(z, a)
         }
+        print("return")
         return z
     }
+    print("too far")
 }
 
 fn test3(a)
@@ -37,3 +42,9 @@ print(test(2,1))
 print("next")
 print(test2(5))
 print("fac:", test3(4))
+
+zz = 2
+close = fn () { print(zz+zz2); }
+zz = 5
+zz2 = 1
+close()

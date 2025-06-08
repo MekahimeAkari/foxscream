@@ -8,7 +8,7 @@ except ModuleNotFoundError:
     pass
 from parser import Parser
 from dataclasses import dataclass, field
-from astree import SymbolTable, ASTNode, InterpObj, BinOp
+from astree import SymbolTable, ASTNode, InterpObj, BinOp, UnOp
 
 @dataclass
 class FSObject:
@@ -75,13 +75,13 @@ class Environment:
         self.lit_num += 1
         return ret_num
 
-    def descend(self, label=None):
-        return Environment(enclosing=self, label=label)
+    def descend(self, **kwargs):
+        return Environment(enclosing=self, in_assign=self.in_assign, **kwargs)
 
     def ascend(self):
         return self.enclosing
 
-    def do_break(self, label=None):
+    def do_break(self, label=None, height=0):
         self.break_called = True
         if label is not None:
             if self.label != label and self.enclosing is not None:
@@ -89,7 +89,7 @@ class Environment:
             else:
                 raise Exception("No labeled block " + label)
         elif self.enclosing is not None and self.loop_scope is False:
-            self.enclosing.do_break(label=label)
+            self.enclosing.do_break(label=label, height=height+1)
 
     def do_leave(self, label=None):
         self.break_called = True
@@ -122,7 +122,7 @@ class FSFunc:
     def call(self, call_args, interp):
         if len(call_args) != len(self.args):
             raise Exception("Arg numbers mismatch")
-        interp.environment = interp.environment.descend()
+        interp.environment = interp.environment.descend(func_scope=True)
         for symbol_name, symbol_val in self.closure.symbols.items():
             interp.environment.assign(symbol_name, symbol_val, immediate=True)
         for i in range(len(call_args)):
@@ -284,12 +284,14 @@ class Interpreter:
         last_ret = None
         for expr in exprlist_ele.exprs:
             last_ret = expr.visit(self)
+            if self.environment.break_called:
+                break
         return last_ret
 
     def assign(self, assign_ele):
-        expr = assign_ele.expr.visit(self)
         operator = assign_ele.operator
         self.environment.push_assign()
+        expr = assign_ele.expr.visit(self)
         assign_ret = assign_ele.target.visit(self, assign=expr)
         self.environment.pop_assign()
         return assign_ret
@@ -362,6 +364,31 @@ class Interpreter:
 
         return res
 
+    def unexpr(self, unexpr_ele):
+        rhs = unexpr_ele.rhs.visit(self).fields["value"]
+        if self.operator == UnOp.NEG:
+            res = -rhs
+        elif self.operator == UnOp.POS:
+            res = +rhs
+        elif self.operartor == UnOp.INV:
+            res = ~rhs
+        elif self.operator == UnOp.NOT:
+            res = not rhs
+        else:
+            raise Exception("unimplemented")
+
+        if res is True:
+            res = self.environment.get("true")
+        elif res is False:
+            res = self.environment.get("false")
+        elif isinstance(res, float):
+            res = self.literal_literal(res, "float")
+        elif isinstance(res, int):
+            res = self.literal_literal(res, "int")
+
+        return res
+
+
     def ifexpr(self, ifexpr_ele):
         if ifexpr_ele.guard.visit(self) is self.environment.get("true"):
             return ifexpr_ele.expr.visit(self)
@@ -377,12 +404,14 @@ class Interpreter:
         iter_name = forexpr_ele.iter_name.name
         last_expr = self.environment.get("null")
         loop_ran = False
+        self.environment = self.environment.descend(loop_scope=True)
         while iter_pos < len(iter_arr) and not self.environment.break_called:
             loop_ran = True
             iter_val = iter_arr[iter_pos]
             self.environment.assign(iter_name, iter_val, immediate=True)
             last_expr = forexpr_ele.expr.visit(self)
             iter_pos += 1
+        self.environment = self.environment.ascend()
         if not loop_ran and forexpr_ele.elexpr is not None:
             return forexpr_ele.elexpr.visit(self)
         return last_expr
@@ -390,21 +419,25 @@ class Interpreter:
     def whileexpr(self, whileexpr_ele):
         last_expr = self.environment.get("null")
         loop_ran = False
+        self.environment = self.environment.descend(loop_scope=True, label="while")
         while whileexpr_ele.guard.visit(self) is self.environment.get("true") and not self.environment.break_called:
             loop_ran = True
             last_expr = whileexpr_ele.expr.visit(self)
+        self.environment = self.environment.ascend()
         if not loop_ran and whileexpr_ele.elexpr is not None:
             return whileexpr_ele.elexpr.visit(self)
         return last_expr
 
     def dowhileexpr(self, dowhileexpr_ele):
         last_expr = dowhileexpr_ele.expr.visit(self)
+        self.environment = self.environment.descend(loop_scope=True)
         while dowhileexpr_ele.guard.visit(self) is self.environment.get("true") and not self.environment.break_called:
             last_expr = dowhileexpr_ele.expr.visit(self)
+        self.environment = self.environment.ascend()
         return last_expr
 
     def block(self, block_ele):
-        self.environment = self.environment.descend(label=block_ele.label.visit(self) if block_ele.label is not None else None)
+        self.environment = self.environment.descend(label=block_ele.label.visit(self) if block_ele.label is not None else "block")
         ret_expr = block_ele.exprs.visit(self)
         if len(self.environment.defer_exprs) > 0:
             for defer_expr in self.environment.defer_exprs:
@@ -432,6 +465,12 @@ class Interpreter:
         args = [x.target.name for x in fndecl_ele.args]
         body = fndecl_ele.expr
         closure = Environment()
+        if self.environment.in_assign:
+            closed_symbols = body.grab_primaries()
+            for symbol in closed_symbols:
+                value = self.environment.get(symbol, can_fail=True)
+                if value is not None:
+                    closure.assign(symbol, value, immediate=True)
         ret_fn = FSFunc(args, body, closure)
         if name is not None:
             self.environment.assign(name, ret_fn)
