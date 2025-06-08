@@ -191,12 +191,22 @@ class Interpreter:
         return Parser(source).parse()
 
     def get_prelude(self):
-        symbol_table = SymbolTable()
-        symbol_table.symbols["print"] = InterpObj("print", func=print)
-        symbol_table.symbols["null"] = InterpObj("null")
-        symbol_table.symbols["true"] = InterpObj("true")
-        symbol_table.symbols["false"] = InterpObj("false")
-        return symbol_table
+        environment = Environment()
+        environment.assign("print", print)
+        environment.assign("object", FSObject("object"))
+        environment.assign("null", FSObject("null"))
+        environment.assign("class", FSObject("class", parents=[environment.get("object")]))
+        environment.assign("number", FSObject("number", parents=[environment.get("object")], fsclass=environment.get("class")))
+        environment.assign("int", FSObject("int", parents=[environment.get("number")], fsclass=environment.get("class")))
+        environment.assign("float", FSObject("float", parents=[environment.get("number")], fsclass=environment.get("class")))
+        environment.assign("bool", FSObject("bool", parents=[environment.get("object")], fsclass=environment.get("class")))
+        environment.assign("true", FSObject("true", parents=[environment.get("bool")], fsclass=environment.get("class")))
+        environment.assign("false", FSObject("false", parents=[environment.get("bool")], fsclass=environment.get("class")))
+        environment.assign("collection", FSObject("collection", parents=[environment.get("object")], fsclass=environment.get("class")))
+        environment.assign("dict", FSObject("dict", parents=[environment.get("collection")], fsclass=environment.get("class")))
+        environment.assign("array", FSObject("array", parents=[environment.get("collection")], fsclass=environment.get("class")))
+        environment.assign("str", FSObject("str", parents=[environment.get("collection")], fsclass=environment.get("class")))
+        return environment
 
     def eval(self, ast, symbol_table=None):
         if symbol_table is None:
@@ -206,24 +216,14 @@ class Interpreter:
     def run(self, source, symbol_table=None):
         return self.eval(self.parse(source), symbol_table=symbol_table)
 
-    def interpret(self, ast):
-        self.environment = Environment()
-        self.environment.assign("print", print)
-        self.environment.assign("object", FSObject("object"))
-        self.environment.assign("null", FSObject("null"))
-        self.environment.assign("class", FSObject("class", parents=[self.environment.get("object")]))
-        self.environment.assign("number", FSObject("number", parents=[self.environment.get("object")], fsclass=self.environment.get("class")))
-        self.environment.assign("int", FSObject("int", parents=[self.environment.get("number")], fsclass=self.environment.get("class")))
-        self.environment.assign("float", FSObject("float", parents=[self.environment.get("number")], fsclass=self.environment.get("class")))
-        self.environment.assign("bool", FSObject("bool", parents=[self.environment.get("object")], fsclass=self.environment.get("class")))
-        self.environment.assign("true", FSObject("true", parents=[self.environment.get("bool")], fsclass=self.environment.get("class")))
-        self.environment.assign("false", FSObject("false", parents=[self.environment.get("bool")], fsclass=self.environment.get("class")))
-        self.environment.assign("collection", FSObject("collection", parents=[self.environment.get("object")], fsclass=self.environment.get("class")))
-        self.environment.assign("dict", FSObject("dict", parents=[self.environment.get("collection")], fsclass=self.environment.get("class")))
-        self.environment.assign("array", FSObject("array", parents=[self.environment.get("collection")], fsclass=self.environment.get("class")))
-        self.environment.assign("str", FSObject("str", parents=[self.environment.get("collection")], fsclass=self.environment.get("class")))
+    def interpret(self, ast, environment=None, print_env=False):
+        if environment is None:
+            environment = self.get_prelude()
+        self.environment = environment
         res = ast.visit(self)
-        print(self.environment)
+        if print_env:
+            print(self.environment)
+        return res
 
     def literal_literal(self, literal_val, literal_type):
         return FSObject("{}_lit_{}".format(literal_type, self.environment.get_lit_num()),
@@ -489,9 +489,9 @@ if __name__ == "__main__":
         interp_face = "<^.^>"
         print("Welcome to foxscream! This language is silly")
         print("Type 'quit' or 'exit' to leave")
-        symbol_table = interp.get_prelude()
-        symbol_table.symbols["quit"] = InterpObj("quit", func=interpreter_quit)
-        symbol_table.symbols["exit"] = InterpObj("exit", func=interpreter_quit)
+        environment = interp.get_prelude()
+        environment.assign("quit", interpreter_quit)
+        environment.assign("exit", interpreter_quit)
         while True:
             try:
                 s = input("{} >>> ".format(interp_face))
@@ -499,7 +499,7 @@ if __name__ == "__main__":
                     print()
                     break
                 try:
-                    interp.run(s, symbol_table=symbol_table)
+                    interp.interpret(interp.parse(s), environment=environment)
                     interp_face = "<^.^>"
                 except InterpreterQuitException:
                     break
