@@ -264,14 +264,16 @@ class Interpreter:
         if primary_ele.accessor is None and assign is not None:
             target = self.environment.assign(primary_ele.target.name, assign)
         target = primary_ele.target.visit(self)
-        if primary_ele.accessor is not None:
-            target = primary_ele.accessor.visit(self).apply(target, self)
+        accessor = primary_ele.accessor
+        while accessor is not None:
+            target = accessor.visit(self).apply(target, self)
+            accessor = accessor.next_accessor
         return target
 
     def accessor(self, accessor_ele):
         access = accessor_ele.access_type.visit(self)
         if accessor_ele.next_accessor is not None:
-            access.next = accessor_ele.next_accessor.visit(self)
+            access = accessor_ele.next_accessor.visit(self)
         return access
 
     def call(self, call_ele):
