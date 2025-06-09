@@ -127,7 +127,9 @@ class Parser:
             return self.block()
         elif self.match_peek(TokenType.NAME, TokenType.COLON, TokenType.OPEN_BRACE):
             return self.labeled_block()
-        elif self.match(TokenType.NAME, TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.TRUE, TokenType.FALSE, TokenType.NULL, TokenType.OPEN_SQUARE, TokenType.OPEN_PAREN):
+        elif self.match(TokenType.NAME, TokenType.INT, TokenType.FLOAT, TokenType.STRING,
+                        TokenType.TRUE, TokenType.FALSE, TokenType.NULL, TokenType.OPEN_SQUARE,
+                        TokenType.OPEN_PAREN, TokenType.MINUS, TokenType.NOT, TokenType.TILDE):
             return self.arith()
         else:
             raise Exception("Unexpected token {}".format(self.lexer.peek()))

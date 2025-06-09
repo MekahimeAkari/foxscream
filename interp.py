@@ -366,13 +366,13 @@ class Interpreter:
 
     def unexpr(self, unexpr_ele):
         rhs = unexpr_ele.rhs.visit(self).fields["value"]
-        if self.operator == UnOp.NEG:
+        if unexpr_ele.operator == UnOp.NEG:
             res = -rhs
-        elif self.operator == UnOp.POS:
+        elif unexpr_ele.operator == UnOp.POS:
             res = +rhs
-        elif self.operartor == UnOp.INV:
+        elif unexpr_ele.operartor == UnOp.INV:
             res = ~rhs
-        elif self.operator == UnOp.NOT:
+        elif unexpr_ele.operator == UnOp.NOT:
             res = not rhs
         else:
             raise Exception("unimplemented")
@@ -465,16 +465,14 @@ class Interpreter:
         args = [x.target.name for x in fndecl_ele.args]
         body = fndecl_ele.expr
         closure = Environment()
-        if self.environment.in_assign:
-            closed_symbols = body.grab_primaries()
-            for symbol in closed_symbols:
-                value = self.environment.get(symbol, can_fail=True)
-                if value is not None:
-                    closure.assign(symbol, value, immediate=True)
-        ret_fn = FSFunc(args, body, closure)
+        closed_symbols = body.grab_primaries()
+        for symbol in closed_symbols:
+            value = self.environment.get(symbol, can_fail=True)
+            if value is not None:
+                closure.assign(symbol, value, immediate=True)
         if name is not None:
-            self.environment.assign(name, ret_fn)
-        return ret_fn
+            self.environment.assign(name, FSFunc(args, body))
+        return FSFunc(args, body, closure)
 
     def classdecl(self, classdecl_ele):
         name = classdecl_ele.name

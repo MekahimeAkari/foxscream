@@ -358,9 +358,7 @@ class Call(Expr):
 
     def grab_primaries(self):
         ret_primaries = []
-        print(self.args)
         for arg in self.args:
-            print(arg)
             ret_primaries.extend(arg.grab_primaries())
         return ret_primaries
 

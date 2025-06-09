@@ -48,3 +48,19 @@ close = fn () { print(zz+zz2); }
 zz = 5
 zz2 = 1
 close()
+fn closed () {
+    zz3 = 1
+    return fn() {
+        print("zz", zz)
+        print("zz2", zz2)
+        print("zz3", zz3)
+    }
+}
+aa= closed()
+zz = 1
+zz2 = 2
+zz3 = -1
+print("first")
+aa()
+print("second")
+closed()() # should also work
